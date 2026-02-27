@@ -105,3 +105,50 @@ async def list_textbooks(course: Optional[str] = None):
     storage = get_storage()
     await storage.initialize()
     return await storage.list_textbooks(course=course)
+
+
+@router.get("/{textbook_id}/chapters/{chapter_num}/content")
+async def get_chapter_content(textbook_id: str, chapter_num: str):
+    """Return the extracted text and image URLs for a specific chapter."""
+    storage = get_storage()
+    await storage.initialize()
+    filesystem = get_filesystem()
+
+    # Read chapter text
+    chapter_path = filesystem.data_dir / "textbooks" / textbook_id / "chapters" / f"{chapter_num}.txt"
+    if not chapter_path.exists():
+        raise HTTPException(status_code=404, detail=f"Chapter {chapter_num} not found")
+
+    text = chapter_path.read_text(encoding="utf-8")
+
+    # Collect image URLs for this chapter (images named page{N}_img{M}.png)
+    images_dir = filesystem.data_dir / "textbooks" / textbook_id / "images"
+    image_urls = []
+    if images_dir.exists():
+        for img in sorted(images_dir.glob("*.png")):
+            image_urls.append(f"http://localhost:8000/api/textbooks/{textbook_id}/images/{img.name}")
+
+    # Get chapter metadata from DB
+    chapters = await storage.list_chapters(textbook_id)
+    chapter_meta = next((c for c in chapters if c["chapter_number"] == chapter_num), None)
+
+    return {
+        "textbook_id": textbook_id,
+        "chapter_num": chapter_num,
+        "title": chapter_meta["title"] if chapter_meta else f"Chapter {chapter_num}",
+        "text": text,
+        "image_urls": image_urls,
+        "page_start": chapter_meta["page_start"] if chapter_meta else 0,
+        "page_end": chapter_meta["page_end"] if chapter_meta else 0,
+    }
+
+
+@router.get("/{textbook_id}/images/{filename}")
+async def serve_image(textbook_id: str, filename: str):
+    """Serve an extracted image file."""
+    from fastapi.responses import FileResponse
+    filesystem = get_filesystem()
+    image_path = filesystem.data_dir / "textbooks" / textbook_id / "images" / filename
+    if not image_path.exists():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(str(image_path))
