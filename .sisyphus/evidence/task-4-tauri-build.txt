@@ -1,0 +1,41 @@
+Task 4: Tauri Desktop Shell Build Evidence
+============================================
+
+Date: 2026-02-27
+Status: STRUCTURE CREATED - CARGO CHECK DEFERRED
+
+Environment Check:
+------------------
+Rust/Cargo Status: NOT INSTALLED
+- cargo --version: command not found
+- rustc --version: command not found
+
+Action Taken:
+-------------
+Per task instructions, Rust/Cargo is not available on this system.
+Created complete Tauri v2 project structure with all required files:
+
+Files Created:
+- src-tauri/Cargo.toml (Tauri v2 dependencies configured)
+- src-tauri/build.rs (Tauri build script)
+- src-tauri/src/lib.rs (Backend spawning logic + Tauri setup)
+- src-tauri/src/main.rs (Entry point)
+- src-tauri/tauri.conf.json (Window config: 1280x800, title "Lazy Learn")
+- src-tauri/capabilities/default.json (Permissions for shell spawning)
+
+Configuration Details:
+- Window Title: "Lazy Learn"
+- Window Size: 1280x800 (resizable)
+- Dev URL: http://localhost:5173 (Vite frontend)
+- Frontend Dist: ../frontend/dist
+- Backend Spawning: Configured in src/lib.rs (best-effort, app works without it)
+- Python Backend: Spawned on startup via uvicorn on port 8000
+- Backend Cleanup: Killed on window close
+
+Next Steps:
+-----------
+Rust/Cargo installation required to run:
+  cd src-tauri && cargo check
+
+The Orchestrator should install Rust toolchain separately.
+All project files are ready for compilation once Rust is available.

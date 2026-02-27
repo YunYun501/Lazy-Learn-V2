@@ -1,0 +1,396 @@
+=== PAGE 6 ===
+x 
+Preface 
+downloaded from the book website. Details concerning effective implementation 
+and on-site optimization of the control systems designed have been provided. 
+An important feature of the book, which makes it different from other books on 
+the subject, is the fact that equal weight has been given to system identification and 
+control design. This is because both techniques are equally important for design 
+and optimization of a high-performance control system. A control engineer has to 
+possess a balance of knowledge in both subjects since identification cannot be 
+dissociated from co
+
+=== PAGE 7 ===
+ 
+Preface 
+xi 
+4. To implement the resulting controller taking into account practical 
+constraints 
+5. To validate the controller performance on site and, if necessary, to re-
+tune it 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ u
+ y
+Reference 
++ 
++ 
+DESIGN 
+METHOD
+MODEL(S)
+Performance 
+specifications 
+PLANT
+IDENTIFICATION
+Robustness 
+specifications 
+CONTROLLER
+2 
+1 
+Figure 0.2. Principle of controller design and validation 
+In order to obtain a relevant dynamic plant model for design, system 
+identification techniques using input/output measurements (switch 1 is off, switch 
+2 is on) should be considered. The methodolo
+
+=== PAGE 8 ===
+xii 
+Preface 
+The Content 
+Chapter 1 briefly reviews the continuous-time control techniques which will be 
+used later on as a reference for the introduction of basic concepts for computer 
+control. 
+Chapter 2 provides a concise overview of computer-controlled systems: the 
+structure of these systems, the sampling process, discrete-time dynamic models, 
+the principles of design of discrete-time two-degrees-of-freedom controllers (RST), 
+and robustness analysis of the control loops. 
+Chapter 3 presents several pertinent model-based design methods for discrete-
+time controllers operating in a det
+
+=== PAGE 9 ===
+ 
+Preface 
+xiii 
+Appendix F describes a numerically robust algorithm for recursive 
+identification. 
+Appendix G is dedicated to the presentation of suggested laboratory sessions 
+that use data files and functions which can be downloaded from the book website. 
+Appendix H gives a list and a brief description of the MATLAB®- and Scilab-
+based functions and C++ programs implementing algorithms presented in the book. 
+These functions and programs can also be downloaded from the book website. 
+The book website gives access, to the various functions and programs as well 
+as to data files. It contain
+
+=== PAGE 10 ===
+xiv 
+Preface 
+ 
+Chapter 1 
+Chapter 2 
+Chapter 3 
+Chapter 4 
+Chapter 5 
+Chapter 6 
+Chapter 7 
+Chapter 8 
+Chapter 9 
+Chapter 10 
+Figure 0.3. Logical dependence of the various chapters 
+The most recent academic courses based on the material in the present book 
+include PhD courses delivered in 2004 at Universita Technologica de Valencia, 
+Spain (robust discrete time controller design) and Escuela Superior de Ingenerios 
+de Sevilla, Spain (system identification in open and closed loop). 
+Acknowledgments  
+We wish to acknowledge the large number of contributors on whose work our 
+presentation is pa
+
+=== PAGE 11 ===
+ 
+Contents 
+List of Principal Notation .................................................................................xxiii 
+1 Continuous Control Systems: A Review .........................................................1 
+ 
+1.1 Continuous-time Models............................................................................1 
+ 
+ 
+1.1.1 Time Domain..................................................................................1 
+ 
+ 
+1.1.2 Frequency Domain .........................................................................2 
+ 
+ 
+1.1.3 Stability ......................................
+
+=== PAGE 12 ===
+xvi 
+Contents 
+ 
+ 
+2.3.2 Frequency Domain .......................................................................38 
+ 
+ 
+2.3.3 General Forms of Linear Discrete-time Models...........................42 
+ 
+ 
+2.3.4 Stability of Discrete-time Systems ...............................................44 
+ 
+ 
+2.3.5 Steady-state Gain..........................................................................46 
+ 
+ 
+2.3.6 Models for Sampled-data Systems with Hold ..............................47 
+ 
+ 
+2.3.7 Analysis of First-order Systems with Time Delay........................49  
+ 
+ 
+2.3.8 Analysis of Sec
+
+=== PAGE 13 ===
+ 
+Contents xvii 
+ 
+ 
+3.5.3 An Interpretation of the Internal Model Control.........................132 
+ 
+ 
+3.5.4 The Sensitivity Functions...........................................................133 
+ 
+ 
+3.5.5 Partial Internal Model Control (Tracking and Regulation).........134 
+ 
+ 
+3.5.6 Internal Model Control for Plant Models with Stable Zeros ......135 
+ 
+ 
+3.5.7 Example: Control of Systems with Time Delay .........................136 
+ 
+3.6 Pole Placement with Sensitivity Function Shaping ...............................141 
+ 
+ 
+3.6.1 Properties of the Output Sensitivity Function........
+
+=== PAGE 14 ===
+xviii Contents 
+ 
+5.6 Concluding Remarks..............................................................................240 
+ 
+5.7 Notes and References.............................................................................245 
+6 System Identification Methods ....................................................................247 
+ 
+6.1 Identification Methods Based on the Whitening of the Prediction 
+ 
+ 
+Error (Type I).........................................................................................247 
+ 
+ 
+6.1.1 Recursive Least Squares (RLS)..........................................
+
+=== PAGE 15 ===
+ 
+Contents 
+xix 
+8 Practical Aspects of Digital Control............................................................317 
+ 
+8.1 Implementation of Digital Controllers...................................................317 
+ 
+ 
+8.1.1 Choice of the Desired Performances ..........................................317 
+ 
+ 
+8.1.2 Effect of the Computational Time Delay....................................319 
+ 
+ 
+8.1.3 Effect of the Digital-to-analog Conversion ................................320 
+ 
+ 
+8.1.4 Effect of the Saturation: Anti Windup Device............................321 
+ 
+ 
+8.1.5 Bumpless Tran
+
+=== PAGE 16 ===
+xx 
+Contents 
+ 
+ 
+10.2.2 Closed Loop Output Matching (CLOM) ....................................407 
+ 
+ 
+10.2.3 Taking into Account the Fixed Parts of the Nominal Controller 407 
+ 
+ 
+10.2.4 Re-Design of Polynomial T(q-1) .................................................408 
+ 
+10.3 Validation of Reduced Order Controllers..............................................408 
+ 
+ 
+10.3.1 The Case of Simulated Data .......................................................409 
+ 
+ 
+10.3.2 The Case of Real Data................................................................409 
+ 
+10.4 Practical Aspects.....
+
+=== PAGE 17 ===
+ 
+Contents 
+xxi 
+G   Laboratory Sessions .....................................................................................463 
+ 
+G.1 Sampled-data Systems ...........................................................................463 
+ 
+G.2 Digital PID Controller ...........................................................................464 
+ 
+G.3 System Identification.............................................................................465 
+ 
+G.4 Digital Control (Distillation Column Control Design) ..........................467 
+ 
+G.5 Closed Loop Identification .....................
+
+=== PAGE 18 ===
+ 
+List of Principal Notation 
+fs 
+sampling frequency 
+Ts  
+sampling period 
+ω 
+radian frequency (rad/s)  
+f 
+frequency (Hz) or normalized frequency(f /fs) 
+t 
+continuous time or normalized discrete-time (with 
+respect to the sampling period t /Ts) 
+k 
+normalized discrete time (t /Ts) 
+u(t), y(t) 
+plant input and output 
+y*(t+d+1) 
+tracking reference 
+r(t) 
+reference or external excitation 
+e(t) 
+discrete time Gaussian white noise  
+q-1 
+shift (delay) operator (q-1 y(t) = y (t-1)) 
+s, z 
+complex variables ( z = esTs) 
+A(q-1), B(q-1), C(q-1) 
+polynomials in the variable q-1 
+d 
+delay of the disc
+
+=== PAGE 19 ===
+xxiv List of Principal Notation 
+ε°CL(t), εCL(t) 
+closed loop a priori / a posteriori prediction error 
+υ°(t), υ(t) 
+a priori / a posteriori adaptation error 
+A, F 
+matrices 
+F > 0 
+positive definite matrix 
+tR 
+rise time 
+tS 
+settling time 
+M 
+maximum overshoot 
+ωo , ζ, 
+natural frequency and damping factor for a 
+continuous-time second-order system 
+E { . } 
+expectation 
+MV 
+mean value 
+var. 
+variance 
+σ 
+standard deviation 
+R(i) 
+auto-correlation or cross-correlation 
+RN(i) 
+normalized auto-correlation or cross-correlation  
+tim 
+maximum length of pulse in  a PRBS 
+OL 
+open loop 
+CL 
+clo
+
+=== PAGE 20 ===
+1 
+Continuous Control Systems: A Review 
+The aim of this chapter is to review briefly the main concepts of continuous control 
+systems. The presentation is such that it will permit at a later stage an easy 
+transition to digital control systems. 
+The subject matter handled relates to the description of continuous-time models 
+in the time and frequency domains, the properties of closed-loop systems and PI 
+and PID controllers. 
+1.1 Continuous-time Models 
+1.1.1 Time Domain 
+Equation 1.1.1 gives an example of a differential equation describing a simple 
+dynamic system: 
+ 
+)
+(
+)
+(
+1
+t
+u
+T
+G
+t
+y
+T
+
+=== PAGE 21 ===
+2 
+Digital Control Systems 
++
+-
+ 1
+T
+G 
+T
+I
+t
+u
+u
+y
+dy
+dt
+_
+t
+y
+ 
+Figure 1.1. Simulation and time responses of the dynamic system described by Equation 
+1.1.1 (I - integrator) 
+Using the differential operator p = d/dt, Equation 1.1.1 is written as 
+ 
+;)
+(
+)
+(
+)
+1
+(
+t
+u
+T
+G
+t
+y
+T
+p
+=
++
+ 
+dt
+d
+p =
+ 
+(1.1.2) 
+For systems described by differential equations as in Equation 1.1.1 we 
+distinguish three types of time response: 
+1. The “free” response: it corresponds to the system response starting with an 
+initial condition y(0)=y0 and for an identically zero input for all t (u = 0, ∀ 
+t). 
+2. The “fo

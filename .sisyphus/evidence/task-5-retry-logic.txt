@@ -1,0 +1,30 @@
+# Task 5: DeepSeek Provider Abstraction - Retry Logic Evidence
+
+## Retry Logic Implementation
+File: backend/app/services/deepseek_provider.py
+
+The _call_with_retry method implements exponential backoff:
+- Max retries: 3 attempts
+- Delay sequence: [2, 4, 8] seconds
+- Triggers on: Empty content responses or httpx.HTTPError
+
+## Test Coverage
+test_retry_on_empty_response verifies:
+1. First API call returns empty content
+2. Retry logic detects empty response
+3. asyncio.sleep is called with correct delay
+4. Second attempt succeeds with valid JSON
+5. Final result is correctly parsed
+
+## Key Implementation Details
+- Empty content detection: `if not content or content.strip() == ""`
+- Retry only on ValueError (empty response) or httpx.HTTPError
+- asyncio.sleep must be mocked in tests to avoid slow test suite
+- Last error is captured and re-raised after max retries exceeded
+
+## Test Results
+All 4 tests PASSED:
+- test_concept_extraction: Validates JSON parsing
+- test_classification: Validates EXPLAINS/USES classification
+- test_retry_on_empty_response: Validates retry mechanism
+- test_practice_problems_always_have_disclaimer: Validates disclaimer inclusion

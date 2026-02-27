@@ -1,0 +1,13 @@
+Total TOC entries: 12
+[1, 'front-matter', 1]
+[1, 'fulltext', 20]
+[1, 'fulltext2', 44]
+[1, 'fulltext3', 104]
+[1, 'fulltext4', 187]
+[1, 'fulltext5', 218]
+[1, 'fulltext6', 263]
+[1, 'fulltext7', 294]
+[1, 'fulltext8', 331]
+[1, 'fulltext9', 389]
+[1, 'fulltext10', 413]
+[1, 'back-matter', 430]

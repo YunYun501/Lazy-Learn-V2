@@ -1,0 +1,132 @@
+ 
+Computer Control Systems 
+41 
+as well. In contrast, the interpretation of q-1 as a complex variable (z-1) is only 
+possible for linear difference equations with constant coefficients.  
+Properties of the Transformation 
+ 
+s
+sT
+e
+z =
+The transformation of Equation 2.3.18 is not bijective because several points in the 
+s- plane are transformed at the same point in the z-plane. Nevertheless, we are 
+interested in the s-plane being delimited between the two horizontal lines crossing 
+the points 
+]
+2
+/
+,
+[
+s
+j
+0
+ω
++
+ and 
+]
+2
+/
+,
+[
+s
+j
+0
+ω
+−
+ where ωs = 2π fs = 2π /Ts. This region is 
+called “primary strip”. 
+ 
+⇒ 
+e sTs
+X 
+X 
+σ
+j ω 
+s 
+ Re s <0 
+Re s > 0
+ω s 
+2 
+-  ω s 
+2 
+- 
+1 
+2 
+3 
+4 
+5
+5
+X
+-1
+X
+1
+1
+2
+3
+4
+5
+z
+ 
+Figure 2.15. Effects of the transformation z = e
+on the points located in the “primary 
+strip” in s-plane 
+s
+sT
+The complementary bands are outside the frequency domain of interest if the 
+conditions of the Shannon theorem (Section 2.2.1) have been satisfied. 
+Figure 2.15 gives a detailed image of the effects of the transformation 
+for 
+the points that are inside the “primary strip”. 
+s
+sT
+e
+z =
+Attention must be focused on an important aspect for continuous second-order 
+systems in the form:  
+ 
+s
+s
+2
+0
+2
+0
+0
+2
+2
++
++
+ω
+ζ
+ω
+ω
+          (ζ<1) 
+for which the resonant damped frequency is equal to half the sampling frequency:  
+ 
+2
+/
+1
+2
+0
+s
+ω
+ζ
+ω
+=
+−
+ 
+The image of their conjugates poles  
+2
+0
+2
+,1
+ω
+ω
+ζ
+s
+j
+s
+±
+−
+=
+ 

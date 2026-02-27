@@ -1,0 +1,9 @@
+{
+  "elapsed_s": 5.14,
+  "parsed": {
+    "concept": "Z-transform",
+    "classification": "EXPLAINS",
+    "confidence": 0.9,
+    "reason": "The chapter explicitly derives the Z-transform, covers its properties like region of convergence and stability, presents transform pairs and inverse methods, and applies it to solving difference equations, providing a comprehensive explanation of the concept."
+  }
+}
