@@ -1,3 +1,4 @@
+import './styles/theme.css'
 import 'katex/dist/katex.min.css'
 import './App.css'
 

@@ -1,0 +1,95 @@
+/* Import Press Start 2P from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* === Color Palette (Celeste/Stardew Valley inspired) === */
+  --color-bg-primary: #1a1a2e;        /* Deep navy background */
+  --color-bg-secondary: #16213e;      /* Slightly lighter navy */
+  --color-bg-panel: #0f3460;          /* Panel background */
+  --color-bg-panel-light: #1a4a7a;    /* Lighter panel variant */
+  
+  --color-accent-primary: #e94560;    /* Hot pink/red accent */
+  --color-accent-secondary: #f5a623;  /* Warm amber */
+  --color-accent-green: #4caf50;      /* EXPLAINS badge */
+  --color-accent-blue: #2196f3;       /* USES badge */
+  --color-accent-purple: #9c27b0;     /* Special highlights */
+  
+  --color-text-primary: #e8e8e8;      /* Main text */
+  --color-text-secondary: #a0a0b0;    /* Secondary text */
+  --color-text-muted: #606070;        /* Muted text */
+  --color-text-on-accent: #ffffff;    /* Text on colored backgrounds */
+  
+  --color-border: #2a4a7a;            /* Default border */
+  --color-border-bright: #4a7aaa;     /* Highlighted border */
+  --color-border-accent: #e94560;     /* Accent border */
+  
+  /* === Typography === */
+  --font-pixel: 'Press Start 2P', monospace;   /* UI chrome ONLY */
+  --font-content: 'Inter', sans-serif;          /* Content text */
+  --font-mono: 'JetBrains Mono', monospace;     /* Code/equations */
+  
+  --font-size-pixel-xs: 8px;
+  --font-size-pixel-sm: 10px;
+  --font-size-pixel-md: 12px;
+  --font-size-pixel-lg: 14px;
+  
+  --font-size-content-sm: 14px;
+  --font-size-content-md: 16px;
+  --font-size-content-lg: 18px;
+  
+  /* === Spacing (8px grid) === */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  
+  /* === Pixel Art Borders === */
+  --border-pixel: 3px solid var(--color-border);
+  --border-pixel-bright: 3px solid var(--color-border-bright);
+  --border-pixel-accent: 3px solid var(--color-accent-primary);
+  
+  /* === Shadows (pixel art style — no blur) === */
+  --shadow-pixel: 4px 4px 0px rgba(0, 0, 0, 0.5);
+  --shadow-pixel-inset: inset 2px 2px 0px rgba(0, 0, 0, 0.3);
+  
+  /* === Transitions === */
+  --transition-fast: 0ms;  /* Pixel art = instant, no smooth transitions */
+}
+
+/* === Global Reset === */
+*, *::before, *::after {
+  box-sizing: border-box;
+  image-rendering: pixelated;  /* Crisp pixel rendering */
+}
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-content);
+  font-size: var(--font-size-content-md);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-bright);
+  border: 1px solid var(--color-border);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent-primary);
+}
