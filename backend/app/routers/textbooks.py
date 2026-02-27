@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.services.filesystem import FilesystemManager
 from app.services.pdf_parser import PDFParser
 from app.services.storage import MetadataStore
-
+from app.services.textbook_finder import TextbookRecommendation, find_textbooks
 router = APIRouter(prefix="/api/textbooks", tags=["textbooks"])
 
 _job_status: dict = {}
@@ -153,3 +153,26 @@ async def serve_image(textbook_id: str, filename: str):
     if not image_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(str(image_path))
+
+
+# ---------------------------------------------------------------------------
+# Textbook Finder — AI recommendation endpoint
+# ---------------------------------------------------------------------------
+
+
+class RecommendRequest(BaseModel):
+    descriptions: list[str]
+
+
+@router.post("/recommend", response_model=list[TextbookRecommendation])
+async def recommend_textbooks(body: RecommendRequest):
+    """Recommend relevant textbooks based on course material descriptions."""
+    if not body.descriptions:
+        raise HTTPException(status_code=400, detail="At least one description is required")
+    from app.services.deepseek_provider import DeepSeekProvider
+    provider = DeepSeekProvider(api_key=settings.DEEPSEEK_API_KEY)
+    recommendations = await find_textbooks(
+        course_descriptions=body.descriptions,
+        provider=provider,
+    )
+    return recommendations
