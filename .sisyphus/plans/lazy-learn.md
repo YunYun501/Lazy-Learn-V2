@@ -1382,7 +1382,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 16. Bookshelf View — Course Grid + Book Selection
+- [x] 16. Bookshelf View — Course Grid + Book Selection
 
   **What to do**:
   - Create `frontend/src/pages/BookshelfPage.tsx`:
@@ -1446,7 +1446,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 17. Desk View — Four-Column Layout with Panel Swapping, Merge, and Image Pinning
+- [x] 17. Desk View — Four-Column Layout with Panel Swapping, Merge, and Image Pinning
 
   **What to do**:
   - Create `frontend/src/pages/DeskPage.tsx` — the main study workspace:
@@ -1577,7 +1577,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 18. KaTeX + Markdown Content Renderer with Image Support
+- [x] 18. KaTeX + Markdown Content Renderer with Image Support
 
   **What to do**:
   - Create `frontend/src/components/ContentRenderer.tsx`:

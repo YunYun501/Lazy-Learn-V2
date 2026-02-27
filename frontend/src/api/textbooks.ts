@@ -39,7 +39,10 @@ export async function importTextbook(file: File, course?: string): Promise<Impor
     method: 'POST',
     body: formData,
   })
-  if (!res.ok) throw new Error(`Failed to import textbook: ${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || `Server error ${res.status}`)
+  }
   return res.json()
 }
 

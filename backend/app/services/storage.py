@@ -70,9 +70,11 @@ class MetadataStore:
         filepath: str,
         course: Optional[str] = None,
         library_type: str = "course",
+        textbook_id: Optional[str] = None,
     ) -> str:
-        """Create a textbook record. Returns the new textbook ID."""
-        textbook_id = str(uuid.uuid4())
+        """Create a textbook record. Returns the textbook ID."""
+        if textbook_id is None:
+            textbook_id = str(uuid.uuid4())
         now = datetime.utcnow().isoformat()
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(

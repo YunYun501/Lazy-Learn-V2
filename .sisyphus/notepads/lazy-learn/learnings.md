@@ -144,3 +144,18 @@
 - generate_all_descriptions() processes chapters sequentially (sorted glob of .txt files)
 - descriptions router uses FastAPI BackgroundTasks for async generation
 - All 32 backend tests pass (28 existing + 4 new description_generator tests)
+
+
+## [2026-02-27] Wave 4 Complete — Tasks 19-24
+- ExplanationGenerator._build_content() truncation: subtract len(marker) from remaining to stay within MAX_CONTENT_CHARS
+- SSE streaming endpoint: `StreamingResponse` with `media_type="text/event-stream"`, each chunk as `data: {chunk}\n\n`, end with `data: [DONE]\n\n`
+- PracticeGenerator: ALWAYS enforce disclaimer via _enforce_disclaimer() even if AI omits it
+- ConversationHandler: loads full history from SQLite, prepends system prompt, saves user+assistant messages after streaming
+- MetadataStore: added create_conversation, add_message, get_messages methods
+- SearchResults component: PixelButton doesn't spread props, wrap in div for data-testid
+- ExplanationView: uses fetch() with ReadableStream reader for SSE, AbortController for cleanup
+- TextbookViewer: image navigation with currentImageIdx state, prev/next buttons
+- Backend chapter content endpoint: GET /api/textbooks/{id}/chapters/{num}/content returns text + image_urls
+- Backend image serving: GET /api/textbooks/{id}/images/{filename} via FileResponse
+- Frontend test counts: 45 tests passing (9 test files)
+- Backend test counts: 55 tests passing

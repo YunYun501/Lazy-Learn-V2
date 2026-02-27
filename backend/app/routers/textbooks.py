@@ -78,6 +78,7 @@ async def import_textbook(
         filepath=str(dest_path),
         course=course,
         library_type="course",
+        textbook_id=textbook_id,
     )
 
     background_tasks.add_task(process_pdf_background, textbook_id, str(dest_path), title)

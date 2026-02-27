@@ -76,7 +76,7 @@ export function BookshelfPage() {
         }
       }, 2000)
     } catch (err) {
-      setError('Failed to import textbook.')
+      setError(`Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
       setImporting(false)
     }
     // Reset file input
@@ -151,7 +151,7 @@ export function BookshelfPage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.pptx,.docx"
+          accept=".pdf"
           style={{ display: 'none' }}
           onChange={handleFileSelect}
           data-testid="file-input"
