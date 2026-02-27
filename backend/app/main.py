@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import textbooks, descriptions, search, explain
+from app.routers import textbooks, descriptions, search, explain, practice, conversations
 
 app = FastAPI(title="Lazy Learn Backend", version="0.1.0")
 
@@ -17,6 +17,8 @@ app.include_router(textbooks.router)
 app.include_router(descriptions.router)
 app.include_router(search.router)
 app.include_router(explain.router)
+app.include_router(practice.router)
+app.include_router(conversations.router)
 
 @app.get("/health")
 async def health():

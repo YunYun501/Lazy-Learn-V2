@@ -171,3 +171,49 @@ class MetadataStore:
             async with db.execute("SELECT * FROM courses ORDER BY name") as cursor:
                 rows = await cursor.fetchall()
             return [dict(row) for row in rows]
+
+    # --- Conversations ---
+
+    async def create_conversation(
+        self,
+        conversation_id: str,
+        query: str,
+        course_id: Optional[str] = None,
+    ) -> str:
+        """Create a conversation record. Returns the conversation ID."""
+        now = datetime.utcnow().isoformat()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT INTO conversations (id, course_id, query, created_at) VALUES (?, ?, ?, ?)",
+                (conversation_id, course_id, query, now),
+            )
+            await db.commit()
+        return conversation_id
+
+    async def add_message(
+        self,
+        conversation_id: str,
+        role: str,
+        content: str,
+    ) -> str:
+        """Append a message to a conversation. Returns the message ID."""
+        message_id = str(uuid.uuid4())
+        now = datetime.utcnow().isoformat()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT INTO messages (id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
+                (message_id, conversation_id, role, content, now),
+            )
+            await db.commit()
+        return message_id
+
+    async def get_messages(self, conversation_id: str) -> list[dict]:
+        """Retrieve all messages for a conversation in chronological order."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at",
+                (conversation_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
