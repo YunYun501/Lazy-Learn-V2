@@ -801,7 +801,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 8. PDF Parser — Text + Image + TOC Extraction
+- [x] 8. PDF Parser — Text + Image + TOC Extraction
 
   **What to do**:
   - Create `backend/app/services/pdf_parser.py` using PyMuPDF:
@@ -884,7 +884,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 9. PPT/DOCX Parser — Slide and Paragraph Extraction
+- [x] 9. PPT/DOCX Parser — Slide and Paragraph Extraction
 
   **What to do**:
   - Create `backend/app/services/pptx_parser.py` using python-pptx:
@@ -946,7 +946,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 10. AI Description Generator — Chapter/Subchapter .md Files
+- [x] 10. AI Description Generator — Chapter/Subchapter .md Files
 
   **What to do**:
   - Create `backend/app/services/description_generator.py`:
@@ -1028,7 +1028,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 11. Pixel Art Design System — Theme Tokens, Fonts, Base Components
+- [x] 11. Pixel Art Design System — Theme Tokens, Fonts, Base Components
 
   **What to do**:
   - Create `frontend/src/styles/` design system:
@@ -1115,7 +1115,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 12. OpenAI Vision Provider (Optional) — Behind Same Abstraction
+- [x] 12. OpenAI Vision Provider (Optional) — Behind Same Abstraction
 
   **What to do**:
   - Create `backend/app/services/openai_provider.py` implementing the same AI provider interface (Task 5):
