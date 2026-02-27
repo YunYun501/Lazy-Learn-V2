@@ -1,3 +1,4 @@
+import shutil
 import uuid
 from typing import Optional
 
@@ -108,6 +109,31 @@ async def list_textbooks(course: Optional[str] = None):
     return await storage.list_textbooks(course=course)
 
 
+@router.delete("/{textbook_id}")
+async def delete_textbook(textbook_id: str):
+    """Delete a textbook, its chapters, extracted files, and descriptions."""
+    storage = get_storage()
+    await storage.initialize()
+    filesystem = get_filesystem()
+
+    book = await storage.get_textbook(textbook_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Textbook not found")
+
+    # Remove files from disk
+    textbook_dir = filesystem.data_dir / "textbooks" / textbook_id
+    if textbook_dir.exists():
+        shutil.rmtree(textbook_dir)
+
+    descriptions_dir = filesystem.data_dir / "descriptions" / textbook_id
+    if descriptions_dir.exists():
+        shutil.rmtree(descriptions_dir)
+
+    # Remove from database
+    await storage.delete_textbook(textbook_id)
+
+    return {"detail": "Textbook deleted", "textbook_id": textbook_id}
+
 @router.get("/{textbook_id}/chapters/{chapter_num}/content")
 async def get_chapter_content(textbook_id: str, chapter_num: str):
     """Return the extracted text and image URLs for a specific chapter."""
@@ -127,7 +153,7 @@ async def get_chapter_content(textbook_id: str, chapter_num: str):
     image_urls = []
     if images_dir.exists():
         for img in sorted(images_dir.glob("*.png")):
-            image_urls.append(f"http://localhost:8000/api/textbooks/{textbook_id}/images/{img.name}")
+            image_urls.append(f"http://127.0.0.1:8000/api/textbooks/{textbook_id}/images/{img.name}")
 
     # Get chapter metadata from DB
     chapters = await storage.list_chapters(textbook_id)

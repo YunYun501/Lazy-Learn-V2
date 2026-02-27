@@ -51,3 +51,13 @@ export async function getImportStatus(jobId: string): Promise<ImportStatus> {
   if (!res.ok) throw new Error(`Failed to get status: ${res.status}`)
   return res.json()
 }
+
+export async function deleteTextbook(textbookId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/textbooks/${textbookId}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || `Failed to delete: ${res.status}`)
+  }
+}

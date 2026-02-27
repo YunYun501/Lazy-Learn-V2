@@ -120,6 +120,12 @@ class MetadataStore:
             )
             await db.commit()
 
+    async def delete_textbook(self, textbook_id: str):
+        """Delete a textbook and all its chapters from the database."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM chapters WHERE textbook_id = ?", (textbook_id,))
+            await db.execute("DELETE FROM textbooks WHERE id = ?", (textbook_id,))
+            await db.commit()
     # --- Chapters ---
 
     async def create_chapter(

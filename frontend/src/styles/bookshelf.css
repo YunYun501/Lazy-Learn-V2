@@ -1,12 +1,66 @@
-/* === Bookshelf Page === */
+/* === Bookshelf Page — Sidebar Layout === */
+
 .bookshelf-page {
   min-height: 100vh;
   background: var(--color-bg-primary);
+  display: flex;
+  flex-direction: row;
+}
+
+/* ──────────────────────────────────────────
+   LEFT SIDEBAR — wooden bookshelf feel
+   ────────────────────────────────────────── */
+
+.bookshelf-sidebar {
+  width: 265px;
+  min-width: 265px;
+  background: #1c1710;
+  border-right: 3px solid #3a2e1a;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  min-height: 100vh;
+  box-shadow: inset -6px 0 12px rgba(0, 0, 0, 0.35);
+  position: relative;
+}
+
+/* decorative wood grain line at top */
+.bookshelf-sidebar::before {
+  content: '';
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, #5a3e1a, #8a6232, #5a3e1a);
+  margin: -16px -16px 8px -16px;
+  opacity: 0.6;
+}
+
+.sidebar-shelf-label {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: #7a6040;
+  letter-spacing: 3px;
+  padding-bottom: var(--space-3);
+  border-bottom: 2px solid #3a2e1a;
+  text-align: center;
+}
+
+/* ──────────────────────────────────────────
+   RIGHT MAIN CONTENT
+   ────────────────────────────────────────── */
+
+.bookshelf-main {
+  flex: 1;
   padding: var(--space-8);
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+  overflow-y: auto;
 }
+
+/* ──────────────────────────────────────────
+   HEADER
+   ────────────────────────────────────────── */
 
 .bookshelf-header {
   text-align: center;
@@ -27,6 +81,10 @@
   margin: 0;
 }
 
+/* ──────────────────────────────────────────
+   ERROR BANNER
+   ────────────────────────────────────────── */
+
 .bookshelf-error {
   background: rgba(233, 69, 96, 0.15);
   border: 2px solid var(--color-accent-primary);
@@ -36,90 +94,273 @@
   font-size: var(--font-size-pixel-xs);
 }
 
-/* Shelf sections */
+/* ──────────────────────────────────────────
+   SHELF SECTIONS
+   ────────────────────────────────────────── */
+
 .shelf-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .shelf-label {
   font-family: var(--font-pixel);
   font-size: var(--font-size-pixel-xs);
-  color: var(--color-text-secondary);
+  color: #8a6a3a;
   margin: 0;
   letter-spacing: 2px;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid #3a2e1a;
 }
 
-.shelf {
+.shelf-books {
   display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  gap: var(--space-2);
-  min-height: 120px;
-  padding: var(--space-4) !important;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .shelf-empty {
   font-family: var(--font-pixel);
   font-size: var(--font-size-pixel-xs);
-  color: var(--color-text-muted);
-  margin: auto;
+  color: #4a3820;
+  margin: var(--space-2) 0;
+  line-height: 1.6;
 }
 
-/* Book spine */
+/* ──────────────────────────────────────────
+   BOOK SPINE — horizontal flat book
+   ────────────────────────────────────────── */
+
 .book-spine {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  background: var(--book-color, var(--color-accent-primary));
+  border: 3px solid rgba(0, 0, 0, 0.38);
+  border-left: 6px solid rgba(0, 0, 0, 0.28);
+  border-right: 2px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  padding: 8px 28px 8px 10px;
+  position: relative;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  text-align: left;
+  overflow: hidden;
+}
+
+/* shimmer stripe on the spine edge */
+.book-spine::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.book-spine:hover {
+  transform: translateX(5px);
+  box-shadow:
+    -5px 3px 0 rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+}
+
+.book-spine:active {
+  transform: translateX(2px);
+  box-shadow:
+    -2px 1px 0 rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* ──────────────────────────────────────────
+   BOOK TEXT
+   ────────────────────────────────────────── */
+
+.book-title {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: rgba(255, 255, 255, 0.93);
+  line-height: 1.5;
+  text-align: left;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+  flex: 1;
+  /* NO writing-mode — titles are horizontal */
+}
+
+.book-course-tag {
+  font-family: var(--font-pixel);
+  font-size: 5px;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 3px;
+  border-radius: 1px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+/* ──────────────────────────────────────────
+   DELETE BUTTON
+   ────────────────────────────────────────── */
+
+.book-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 8px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-family: sans-serif;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  z-index: 1;
+}
+
+.book-delete-btn:hover {
+  background: var(--color-accent-primary);
+  color: #fff;
+  border-color: var(--color-accent-primary);
+}
+
+.book-delete-btn:active {
+  background: #c03348;
+}
+
+/* ──────────────────────────────────────────
+   SIDEBAR ACTIONS (Import button area)
+   ────────────────────────────────────────── */
+
+.sidebar-actions {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 2px solid #3a2e1a;
+}
+
+.sidebar-import-btn {
+  width: 100% !important;
+  font-size: 7px !important;
+}
+
+/* ──────────────────────────────────────────
+   WELCOME STATE (empty bookshelf)
+   ────────────────────────────────────────── */
+
+.bookshelf-welcome {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 100px;
-  background: var(--book-color, var(--color-accent-primary));
-  border: 3px solid rgba(0, 0, 0, 0.4);
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
-  cursor: pointer;
-  padding: var(--space-2);
-  transition: transform 0ms;
-  position: relative;
-  overflow: hidden;
+  flex: 1;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  text-align: center;
 }
 
-.book-spine:hover {
-  transform: translateY(-8px);
-  box-shadow: 4px 12px 0 rgba(0, 0, 0, 0.5);
+.welcome-icon {
+  font-size: 48px;
+  opacity: 0.4;
+  filter: grayscale(0.3);
 }
 
-.book-spine:active {
-  transform: translateY(-4px);
-}
-
-.book-title {
+.welcome-text {
   font-family: var(--font-pixel);
-  font-size: 6px;
-  color: rgba(255, 255, 255, 0.9);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  transform: rotate(180deg);
-  line-height: 1.2;
-  word-break: break-all;
-  max-height: 80px;
-  overflow: hidden;
+  font-size: var(--font-size-pixel-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
 }
 
-.book-course {
+.welcome-hint {
   font-family: var(--font-pixel);
-  font-size: 5px;
-  color: rgba(255, 255, 255, 0.6);
-  position: absolute;
-  bottom: 4px;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-muted);
+  line-height: 1.8;
+  max-width: 360px;
+  margin: 0;
 }
 
-/* Actions */
+.welcome-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  width: 100%;
+  max-width: 380px;
+}
+
+.welcome-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-4);
+}
+
+.step-num {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-accent-primary);
+  flex-shrink: 0;
+}
+
+.step-desc {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  text-align: left;
+}
+
+/* ──────────────────────────────────────────
+   LOADED HINT
+   ────────────────────────────────────────── */
+
+.bookshelf-hint {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.hint-text {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-muted);
+  margin: 0;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ──────────────────────────────────────────
+   LEGACY SHELF CLASSES (backward compat)
+   ────────────────────────────────────────── */
+
+.shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 60px;
+  padding: var(--space-2) !important;
+}
+
 .bookshelf-actions {
   display: flex;
   justify-content: center;
