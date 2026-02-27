@@ -1670,7 +1670,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 19. Step 4 — AI Explanation Generator with Streaming
+- [x] 19. Step 4 — AI Explanation Generator with Streaming
 
   **What to do**:
   - Create `backend/app/services/explanation_generator.py`:
@@ -1745,7 +1745,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 20. Practice Question + Solution Generator with Warning
+- [x] 20. Practice Question + Solution Generator with Warning
 
   **What to do**:
   - Create `backend/app/services/practice_generator.py`:
@@ -1810,7 +1810,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 21. Conversational Follow-Up Handler
+- [x] 21. Conversational Follow-Up Handler
 
   **What to do**:
   - Create `backend/app/services/conversation.py`:
@@ -1865,7 +1865,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 22. Search Results UI — Categorized List with EXPLAINS/USES Badges
+- [x] 22. Search Results UI — Categorized List with EXPLAINS/USES Badges
 
   **What to do**:
   - Create `frontend/src/components/SearchResults.tsx`:
@@ -1926,7 +1926,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 23. Explanation View — Streaming Book Panel with LaTeX + Images
+- [x] 23. Explanation View — Streaming Book Panel with LaTeX + Images
 
   **What to do**:
   - Create `frontend/src/components/ExplanationView.tsx`:
@@ -1981,7 +1981,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 24. Raw Textbook Viewer — PDF Page Display with Images
+- [x] 24. Raw Textbook Viewer — PDF Page Display with Images
 
   **What to do**:
   - Create `frontend/src/components/TextbookViewer.tsx`:
