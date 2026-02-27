@@ -159,3 +159,32 @@
 - Backend image serving: GET /api/textbooks/{id}/images/{filename} via FileResponse
 - Frontend test counts: 45 tests passing (9 test files)
 - Backend test counts: 55 tests passing
+## Task 25 — Material Organizer (2026-02-27)
+
+### Patterns used
+- `MaterialOrganizer` follows same DI pattern: `__init__(self, ai_provider, document_parser=None)`
+- `CLASSIFY_SYSTEM_PROMPT` as module-level constant for DeepSeek cache hits (same as description_generator)
+- `DocumentParser.parse()` handles `.pptx`/`.docx` but raises ValueError for `.pdf` — use `fitz` (PyMuPDF) directly for PDFs
+- `fitz` (PyMuPDF) is available in the venv; `pypdf` is NOT
+- `shutil.copy2()` preserves metadata on file copy
+- Router uses `BackgroundTasks` + in-memory `_job_status` dict (same pattern as textbooks.py)
+- pytest asyncio_mode="auto" — no `@pytest.mark.asyncio` needed
+- Tests use `MagicMock()` for AI provider + `AsyncMock(return_value=...)` for `.chat()`
+- `AsyncMock(side_effect=[...])` for multi-call mocks (one response per call)
+
+### Architecture
+- `OrganizationResult.categories` is a `@property` computing counts from `organized_files`
+- Duplicate detection: check `(target_dir / file.name).exists()` before copy
+- Category fallback: any unrecognised AI category → `"other"`
+- All 7 category→folder mappings in `CATEGORY_FOLDER_MAP` dict constant
+
+### Test results: 61/61 pass (6 new + 55 pre-existing)
+
+## Task 26 — Textbook Finder (2026-02-27)
+- `find_textbooks(course_descriptions, provider)` pattern: pass provider as argument (not built inside service) — makes mocking trivial in tests
+- `json_mode=False` used because DeepSeek's json_object mode requires the root to be an object; we return an array, so we parse manually
+- Wrap array unwrap logic handles cases where DeepSeek wraps arrays inside `{"recommendations": [...]}` 
+- `_strip_markdown_fences()` regex handles both ` ```json ` and ` ``` ` variants
+- Piracy filter: `any(domain in url.lower() for domain in PIRACY_DOMAINS)` — simple and reliable
+- TEXTBOOK_FINDER_SYSTEM_PROMPT is MODULE-LEVEL CONSTANT for cache hit optimization (same pattern as DESCRIPTION_SYSTEM_PROMPT)
+- Endpoint pattern: lazy-import DeepSeekProvider inside the handler to avoid circular imports at module load
