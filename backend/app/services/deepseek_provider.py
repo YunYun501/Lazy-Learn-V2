@@ -89,22 +89,37 @@ class DeepSeekProvider(AIProvider):
             return data["choices"][0]["message"]["content"]
 
     async def _stream_response(self, payload: dict) -> AsyncGenerator[str, None]:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            async with client.stream(
-                "POST",
-                f"{self.base_url}/chat/completions",
-                headers=self._headers(),
-                json=payload,
-            ) as response:
-                async for line in response.aiter_lines():
-                    if line.startswith("data: ") and line != "data: [DONE]":
-                        try:
-                            data = json.loads(line[6:])
-                            content = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
-                            if content:
-                                yield content
-                        except json.JSONDecodeError:
-                            pass
+        """Stream response from DeepSeek API with retry logic on errors."""
+        delays = [2, 4, 8]
+        max_retries = 3
+        last_error = None
+
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=120.0) as client:
+                    async with client.stream(
+                        "POST",
+                        f"{self.base_url}/chat/completions",
+                        headers=self._headers(),
+                        json=payload,
+                    ) as response:
+                        response.raise_for_status()
+                        async for line in response.aiter_lines():
+                            if line.startswith("data: ") and line != "data: [DONE]":
+                                try:
+                                    data = json.loads(line[6:])
+                                    content = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                    if content:
+                                        yield content
+                                except json.JSONDecodeError:
+                                    pass
+                return
+            except (httpx.HTTPError, httpx.TimeoutException) as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(delays[attempt])
+                else:
+                    raise RuntimeError(f"DeepSeek streaming failed after {max_retries} attempts: {last_error}")
 
     async def extract_concepts(self, user_query: str) -> ConceptExtraction:
         """Step 0: Extract concepts and equation forms from user query."""

@@ -1,8 +1,11 @@
 import json
+import logging
 import fitz
 
 from app.services.storage import MetadataStore
 from app.services.filesystem import FilesystemManager
+
+logger = logging.getLogger(__name__)
 
 
 class ParsedChapter:
@@ -65,7 +68,7 @@ class PDFParser:
                 chapters = parsed.get("chapters", [])
                 return [{"level": 1, "title": c["title"], "page": c.get("page", 1)} for c in chapters]
         except Exception as e:
-            print(f"AI TOC fallback failed: {e}")
+            logger.warning(f"AI TOC fallback failed: {e}")
 
         return [{"level": 1, "title": "Full Document", "page": 1}]
 
@@ -83,8 +86,8 @@ class PDFParser:
                     img_path = self.filesystem.image_path(textbook_id, page_num + 1, img_index)
                     img_path.write_bytes(image_bytes)
                     saved_paths.append(str(img_path))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Image extraction failed for xref {xref}: {e}")
 
         if not saved_paths:
             try:
@@ -95,8 +98,8 @@ class PDFParser:
                     img_path = self.filesystem.image_path(textbook_id, page_num + 1, 0)
                     pix.save(str(img_path))
                     saved_paths.append(str(img_path))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Fallback image extraction failed: {e}")
 
         return saved_paths
 
