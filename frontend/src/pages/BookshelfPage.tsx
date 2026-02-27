@@ -88,9 +88,30 @@ export function BookshelfPage() {
 
   return (
     <div className="bookshelf-page" data-testid="bookshelf-page">
-      <header className="bookshelf-header">
+      <header className="bookshelf-header" style={{ position: 'relative' }}>
         <h1 className="bookshelf-title">LAZY LEARN</h1>
         <p className="bookshelf-subtitle">AI-Powered STEM Study Assistant</p>
+        <button
+          onClick={() => navigate('/settings')}
+          title="Open Settings"
+          aria-label="Open settings"
+          data-testid="settings-gear-btn"
+          style={{
+            position: 'absolute',
+            top: '50%',
+            right: '16px',
+            transform: 'translateY(-50%)',
+            background: 'transparent',
+            border: '2px solid var(--color-border)',
+            color: 'var(--color-text-secondary)',
+            fontSize: '20px',
+            cursor: 'pointer',
+            padding: '4px 8px',
+            lineHeight: 1,
+          }}
+        >
+          ⚙
+        </button>
       </header>
 
       {error && (

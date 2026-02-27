@@ -5,6 +5,7 @@ import 'katex/dist/katex.min.css'
 import './App.css'
 import { BookshelfPage } from './pages/BookshelfPage'
 import { DeskPage } from './pages/DeskPage'
+import { SettingsPage } from './pages/SettingsPage'
 import SplashScreen from './components/SplashScreen'
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
       <Routes>
         <Route path="/" element={<BookshelfPage />} />
         <Route path="/desk/:textbookId" element={<DeskPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
