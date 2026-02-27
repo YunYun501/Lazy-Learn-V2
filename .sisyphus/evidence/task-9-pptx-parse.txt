@@ -1,0 +1,21 @@
+C:\Users\felix\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+============================= test session starts =============================
+platform win32 -- Python 3.11.4, pytest-8.3.4, pluggy-1.5.0 -- C:\Users\felix\AppData\Local\Programs\Python\Python311\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Local\Github\Lazy_Learn\backend
+configfile: pyproject.toml
+plugins: anyio-4.12.1, langsmith-0.4.38, asyncio-1.3.0, typeguard-2.13.3
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 6 items
+
+tests/test_pptx_parser.py::test_pptx_preserves_slide_numbers PASSED      [ 16%]
+tests/test_pptx_parser.py::test_pptx_extracts_all_text PASSED            [ 33%]
+tests/test_pptx_parser.py::test_pptx_to_chapters_format PASSED           [ 50%]
+tests/test_docx_parser.py::test_docx_detects_headings PASSED             [ 66%]
+tests/test_docx_parser.py::test_docx_preserves_text PASSED               [ 83%]
+tests/test_docx_parser.py::test_docx_to_chapters_format PASSED           [100%]
+
+============================== 6 passed in 1.46s ==============================
