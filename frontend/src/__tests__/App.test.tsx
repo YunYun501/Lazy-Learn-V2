@@ -4,8 +4,9 @@ import { describe, it, expect } from 'vitest'
 import App from '../App'
 
 describe('App', () => {
-  it('renders Lazy Learn title', () => {
+  it('renders the bookshelf page at root route', () => {
     render(<App />)
-    expect(screen.getByText('Lazy Learn')).toBeInTheDocument()
+    // BookshelfPage renders "LAZY LEARN" title
+    expect(screen.getByText('LAZY LEARN')).toBeInTheDocument()
   })
 })

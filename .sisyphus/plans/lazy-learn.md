@@ -1177,7 +1177,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 13. Step 0 — AI Concept and Equation Form Extractor
+- [x] 13. Step 0 — AI Concept and Equation Form Extractor
 
   **What to do**:
   - Create `backend/app/services/concept_extractor.py`:
@@ -1249,7 +1249,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 14. Step 1 — Keyword Search Engine Across Descriptions
+- [x] 14. Step 1 — Keyword Search Engine Across Descriptions
 
   **What to do**:
   - Create `backend/app/services/keyword_search.py`:
@@ -1314,7 +1314,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 15. Step 2 — AI Categorization: EXPLAINS vs USES
+- [x] 15. Step 2 — AI Categorization: EXPLAINS vs USES
 
   **What to do**:
   - Create `backend/app/services/match_categorizer.py`:

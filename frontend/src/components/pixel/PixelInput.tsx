@@ -2,7 +2,8 @@ import '../../styles/pixel-components.css'
 
 interface PixelInputProps {
   value: string
-  onChange: (value: string) => void
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void
   placeholder?: string
   multiline?: boolean
   rows?: number
@@ -12,6 +13,7 @@ interface PixelInputProps {
 export function PixelInput({
   value,
   onChange,
+  onKeyDown,
   placeholder = '',
   multiline = false,
   rows = 4,
@@ -22,7 +24,8 @@ export function PixelInput({
       <textarea
         className={`pixel-input ${className}`}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange as React.ChangeEventHandler<HTMLTextAreaElement>}
+        onKeyDown={onKeyDown as React.KeyboardEventHandler<HTMLTextAreaElement>}
         placeholder={placeholder}
         rows={rows}
       />
@@ -33,7 +36,8 @@ export function PixelInput({
       type="text"
       className={`pixel-input ${className}`}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={onChange as React.ChangeEventHandler<HTMLInputElement>}
+      onKeyDown={onKeyDown as React.KeyboardEventHandler<HTMLInputElement>}
       placeholder={placeholder}
     />
   )

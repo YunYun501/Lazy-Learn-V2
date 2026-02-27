@@ -1,0 +1,127 @@
+/* === Bookshelf Page === */
+.bookshelf-page {
+  min-height: 100vh;
+  background: var(--color-bg-primary);
+  padding: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.bookshelf-header {
+  text-align: center;
+}
+
+.bookshelf-title {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-lg);
+  color: var(--color-accent-primary);
+  margin: 0 0 var(--space-2);
+  text-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
+}
+
+.bookshelf-subtitle {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.bookshelf-error {
+  background: rgba(233, 69, 96, 0.15);
+  border: 2px solid var(--color-accent-primary);
+  color: var(--color-accent-primary);
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+}
+
+/* Shelf sections */
+.shelf-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.shelf-label {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-secondary);
+  margin: 0;
+  letter-spacing: 2px;
+}
+
+.shelf {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: var(--space-2);
+  min-height: 120px;
+  padding: var(--space-4) !important;
+  flex-wrap: wrap;
+}
+
+.shelf-empty {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-muted);
+  margin: auto;
+}
+
+/* Book spine */
+.book-spine {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 100px;
+  background: var(--book-color, var(--color-accent-primary));
+  border: 3px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  padding: var(--space-2);
+  transition: transform 0ms;
+  position: relative;
+  overflow: hidden;
+}
+
+.book-spine:hover {
+  transform: translateY(-8px);
+  box-shadow: 4px 12px 0 rgba(0, 0, 0, 0.5);
+}
+
+.book-spine:active {
+  transform: translateY(-4px);
+}
+
+.book-title {
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  line-height: 1.2;
+  word-break: break-all;
+  max-height: 80px;
+  overflow: hidden;
+}
+
+.book-course {
+  font-family: var(--font-pixel);
+  font-size: 5px;
+  color: rgba(255, 255, 255, 0.6);
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* Actions */
+.bookshelf-actions {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4);
+}

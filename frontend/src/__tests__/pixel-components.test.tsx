@@ -61,7 +61,7 @@ describe('PixelInput', () => {
     const input = screen.getByPlaceholderText('Type here')
     expect(input).toBeInTheDocument()
     fireEvent.change(input, { target: { value: 'Z-transform' } })
-    expect(onChange).toHaveBeenCalledWith('Z-transform')
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ type: 'change' }))
   })
 })
 
