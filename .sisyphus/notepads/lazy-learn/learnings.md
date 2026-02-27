@@ -188,3 +188,15 @@
 - Piracy filter: `any(domain in url.lower() for domain in PIRACY_DOMAINS)` — simple and reliable
 - TEXTBOOK_FINDER_SYSTEM_PROMPT is MODULE-LEVEL CONSTANT for cache hit optimization (same pattern as DESCRIPTION_SYSTEM_PROMPT)
 - Endpoint pattern: lazy-import DeepSeekProvider inside the handler to avoid circular imports at module load
+
+
+## Task 29 — Settings Panel (2026-02-27)
+- `SettingsStore` follows `MetadataStore` pattern: aiosqlite, `initialize()`, same db file (`data/lazy_learn.db`)
+- API key masking: `'****...' + value[-4:]` — applied in `get_all_settings()` for keys in `_API_KEY_NAMES` set
+- `test_connection` uses `httpx.AsyncClient` directly (no new deps); mock with `patch('app.services.settings.httpx.AsyncClient')`
+- Async context manager mock pattern: `mock_class.return_value.__aenter__ = AsyncMock(return_value=mock_client); mock_class.return_value.__aexit__ = AsyncMock(return_value=False)`
+- `PixelInput` only supports `type='text'`; for password fields use native `<input type='password' className='pixel-input' />` directly
+- Settings router GET returns dict (not Pydantic model) — allows arbitrary keys
+- ESC key pattern: `document.addEventListener('keydown', fn)` in `useEffect` with `navigate` dep, cleanup in return
+- `data-testid` on wrapper `<div>` around PixelButton for test targeting (PixelButton doesn't spread props)
+- Frontend mock: `vi.mock('../api/settings', () => ({ getSettings: vi.fn(), ... }))` — mock both settings and textbooks APIs in SettingsPage tests

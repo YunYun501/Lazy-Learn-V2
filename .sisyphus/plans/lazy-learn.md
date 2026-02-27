@@ -2033,7 +2033,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 25. Material Organizer — Auto-Categorize Downloaded Files into Folders
+- [x] 25. Material Organizer — Auto-Categorize Downloaded Files into Folders
 
   **What to do**:
   - Create `backend/app/services/material_organizer.py`:
@@ -2101,7 +2101,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 26. Textbook Finder — AI Recommends Textbooks + Links
+- [x] 26. Textbook Finder — AI Recommends Textbooks + Links
 
   **What to do**:
   - Create `backend/app/services/textbook_finder.py`:
@@ -2243,7 +2243,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 28. Loading/Splash Screen — Pixel Art Startup Animation
+- [x] 28. Loading/Splash Screen — Pixel Art Startup Animation
 
   **What to do**:
   - Create `frontend/src/components/SplashScreen.tsx`:
@@ -2298,7 +2298,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 29. Settings Panel — API Keys, Download Folder, Course Management
+- [x] 29. Settings Panel — API Keys, Download Folder, Course Management
 
   **What to do**:
   - Create `frontend/src/pages/SettingsPage.tsx`:
