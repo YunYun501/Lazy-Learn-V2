@@ -363,7 +363,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 2. Python Backend Scaffolding — FastAPI + pytest + Project Structure
+- [x] 2. Python Backend Scaffolding — FastAPI + pytest + Project Structure
 
   **What to do**:
   - Create `backend/` directory with Python project structure:
@@ -431,7 +431,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 3. React Frontend Scaffolding — Vite + TypeScript + vitest + KaTeX
+- [x] 3. React Frontend Scaffolding — Vite + TypeScript + vitest + KaTeX
 
   **What to do**:
   - Create `frontend/` with Vite + React + TypeScript:
@@ -496,7 +496,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 4. Tauri Desktop Shell — Wraps Frontend + Spawns Python Backend
+- [x] 4. Tauri Desktop Shell — Wraps Frontend + Spawns Python Backend
 
   **What to do**:
   - Initialize Tauri in the project root: `npm create tauri-app` or manual setup
@@ -559,7 +559,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 5. DeepSeek AI Provider Abstraction Layer
+- [x] 5. DeepSeek AI Provider Abstraction Layer
 
   **What to do**:
   - Create `backend/app/services/ai_provider.py` — Abstract base class for AI providers:
@@ -651,7 +651,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 6. Description Schema Definition — .md Format Specification
+- [x] 6. Description Schema Definition — .md Format Specification
 
   **What to do**:
   - Create `backend/app/models/description_schema.py` — Pydantic model defining the .md description format:
@@ -737,7 +737,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 7. SQLite Metadata Store + Filesystem Layout
+- [x] 7. SQLite Metadata Store + Filesystem Layout
 
   **What to do**:
   - Create `backend/app/services/storage.py` — SQLite-based metadata store:
