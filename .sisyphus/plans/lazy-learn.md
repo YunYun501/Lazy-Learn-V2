@@ -2164,7 +2164,7 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 ---
 
-- [ ] 27. LMS Downloader — Playwright Embedded Browser for Moodle
+- [x] 27. LMS Downloader — Playwright Embedded Browser for Moodle
 
   **What to do**:
   - Create `backend/app/services/lms_downloader.py`:
