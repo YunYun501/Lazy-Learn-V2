@@ -4,7 +4,7 @@ interface SplashScreenProps {
   onReady: () => void
 }
 
-const HEALTH_URL = 'http://localhost:8000/health'
+const HEALTH_URL = 'http://127.0.0.1:8000/health'
 const POLL_INTERVAL = 500
 const TIMEOUT_SECONDS = 8
 

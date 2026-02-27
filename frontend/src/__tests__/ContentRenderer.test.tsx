@@ -26,7 +26,7 @@ describe('ContentRenderer', () => {
   })
 
   it('renders images with draggable attribute', () => {
-    render(<ContentRenderer content="![test image](http://localhost:8000/api/textbooks/tb_001/images/test.png)" />)
+    render(<ContentRenderer content="![test image](http://127.0.0.1:8000/api/textbooks/tb_001/images/test.png)" />)
     const img = screen.getByTestId('content-image')
     expect(img).toBeInTheDocument()
     expect(img).toHaveAttribute('draggable', 'true')

@@ -9,8 +9,8 @@ const MOCK_CHAPTER = {
   title: 'Chapter 3: The Z-Transform',
   text: 'The Z-transform is defined as $X(z) = \\sum_{n=-\\infty}^{\\infty} x[n] z^{-n}$.',
   image_urls: [
-    'http://localhost:8000/api/textbooks/tb1/images/page3_img0.png',
-    'http://localhost:8000/api/textbooks/tb1/images/page4_img0.png',
+    'http://127.0.0.1:8000/api/textbooks/tb1/images/page3_img0.png',
+    'http://127.0.0.1:8000/api/textbooks/tb1/images/page4_img0.png',
   ],
   page_start: 45,
   page_end: 62,
