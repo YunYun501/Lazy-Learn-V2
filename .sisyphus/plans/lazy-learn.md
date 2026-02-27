@@ -2374,19 +2374,19 @@ Max Concurrent: 6 (Waves 1 & 2)
 
 > 4 review agents run in PARALLEL. ALL must APPROVE. Rejection → fix → re-run.
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. For each "Must Have": verify implementation exists (read file, curl endpoint, run command). For each "Must NOT Have": search codebase for forbidden patterns (ChromaDB imports, vector DB references, credential storage) — reject with file:line if found. Check evidence files exist in .sisyphus/evidence/. Compare deliverables against plan. Verify "verify solutions" warning appears on all practice problem outputs.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `pytest` + `vitest` + `pyright`/`mypy` type checks. Review all changed files for: `as any`/`@ts-ignore`, empty catches, console.log in prod, commented-out code, unused imports. Check AI slop: excessive comments, over-abstraction, generic names. Verify all API calls have retry logic. Verify streaming is implemented for explanation endpoints.
   Output: `Build [PASS/FAIL] | Tests [N pass/N fail] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA — Full Flow with Simulation Materials** — `unspecified-high` (+ `playwright` skill)
+- [x] F3. **Real Manual QA — Full Flow with Simulation Materials** — `unspecified-high` (+ `playwright` skill)
   Start app. Import `Simulation Material/Textbook/DigitalControlSystems-NeweditionI.D.LandauG.Zito.pdf`. Wait for processing. Search "Z-transform". Verify EXPLAINS vs USES categorization appears. Select a chapter. Verify streaming explanation with LaTeX renders correctly. Request practice problems. Verify "verify solutions" warning appears. Test conversational follow-up. Screenshot each step. Save to `.sisyphus/evidence/final-qa/`.
   Output: `Scenarios [N/N pass] | Integration [N/N] | Edge Cases [N tested] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff. Verify 1:1 — everything in spec was built, nothing beyond spec was built. Specifically check: no ChromaDB/embeddings snuck in, no credential storage, no direct textbook downloads, no cloud features. Flag unaccounted changes.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 
