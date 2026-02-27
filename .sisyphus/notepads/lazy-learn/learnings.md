@@ -200,3 +200,8 @@
 - ESC key pattern: `document.addEventListener('keydown', fn)` in `useEffect` with `navigate` dep, cleanup in return
 - `data-testid` on wrapper `<div>` around PixelButton for test targeting (PixelButton doesn't spread props)
 - Frontend mock: `vi.mock('../api/settings', () => ({ getSettings: vi.fn(), ... }))` — mock both settings and textbooks APIs in SettingsPage tests
+- LMS Downloader: `async_playwright` must be imported at module level (not inside method) so tests can patch `app.services.lms_downloader.async_playwright`
+- Playwright mock pattern: `mock_apl.return_value.start = AsyncMock(return_value=pw)` — `async_playwright()` returns object with `.start()` coroutine
+- `_Session` class uses class-level `_sessions` dict on `LMSDownloader` — tests must reset `d._sessions = {}` in fixture to avoid cross-test leakage
+- Security: NEVER move credential handling into service — login is always manual; only session cookies (post-auth tokens) travel through the browser context
+- `MagicMock(spec=_Session)` works for injecting fake sessions; set `.page.url`, `.lms_url`, `.created_at` manually
