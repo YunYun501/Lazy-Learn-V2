@@ -2,14 +2,20 @@ import shutil
 import uuid
 from typing import Optional
 
+import fitz
+
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.models.pipeline_models import ChapterVerificationRequest, ChapterWithStatus, ExtractionStatus, PipelineStatus
 from app.services.filesystem import FilesystemManager
 from app.services.pdf_parser import PDFParser
+from app.services.pipeline_orchestrator import PipelineOrchestrator
 from app.services.storage import MetadataStore
 from app.services.textbook_finder import TextbookRecommendation, find_textbooks
+
+
 router = APIRouter(prefix="/api/textbooks", tags=["textbooks"])
 
 _job_status: dict = {}
@@ -28,12 +34,16 @@ def get_filesystem() -> FilesystemManager:
 class ImportResponse(BaseModel):
     textbook_id: str
     job_id: str
+    status: str
     message: str
 
 
 class StatusResponse(BaseModel):
     textbook_id: str
-    status: str
+    pipeline_status: str
+    chapters: list[ChapterWithStatus] = []
+    relevance_results: Optional[list[dict]] = None
+    status: Optional[str] = None
     chapters_found: int = 0
     error: Optional[str] = None
     warning: Optional[str] = None
@@ -41,42 +51,128 @@ class StatusResponse(BaseModel):
     step: Optional[str] = None
 
 
-async def process_pdf_background(textbook_id: str, filepath: str, title: str):
-    def set_progress(pct: int, step: str):
-        _job_status[textbook_id]["progress"] = pct
-        _job_status[textbook_id]["step"] = step
-
-    _job_status[textbook_id] = {"status": "processing", "chapters_found": 0, "progress": 0, "step": "Starting import..."}
+def _coerce_int(value: Optional[str], default: int = 0) -> int:
     try:
-        set_progress(5, "Initializing storage...")
+        return int(value) if value is not None else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _build_sections(toc_entries: list[dict], page_start: int, page_end: int) -> list[dict]:
+    sections = [
+        entry
+        for entry in toc_entries
+        if entry.get("level") == 2 and page_start <= entry.get("page", 1) <= page_end
+    ]
+    sections.sort(key=lambda entry: entry.get("page", 1))
+    built: list[dict] = []
+    for idx, entry in enumerate(sections):
+        section_start = _coerce_int(entry.get("page", 1), 1)
+        next_page = sections[idx + 1].get("page") if idx + 1 < len(sections) else None
+        section_end = _coerce_int(next_page, page_end + 1) - 1 if next_page else page_end
+        built.append(
+            {
+                "section_number": idx + 1,
+                "title": entry.get("title", ""),
+                "page_start": section_start,
+                "page_end": section_end,
+            }
+        )
+    return built
+
+
+def _build_toc_payload(toc_entries: list[dict], total_pages: int) -> dict:
+    top_level = [entry for entry in toc_entries if entry.get("level") == 1]
+    if not top_level:
+        return {
+            "chapters": [
+                {
+                    "chapter_number": "1",
+                    "title": "Full Document",
+                    "page_start": 1,
+                    "page_end": total_pages,
+                    "sections": [],
+                }
+            ]
+        }
+
+    chapters: list[dict] = []
+    for idx, entry in enumerate(top_level):
+        page_start = _coerce_int(entry.get("page", 1), 1)
+        next_page = top_level[idx + 1].get("page") if idx + 1 < len(top_level) else None
+        page_end = _coerce_int(next_page, total_pages + 1) - 1 if next_page else total_pages
+        chapters.append(
+            {
+                "chapter_number": str(idx + 1),
+                "title": entry.get("title", ""),
+                "page_start": page_start,
+                "page_end": page_end,
+                "sections": _build_sections(toc_entries, page_start, page_end),
+            }
+        )
+    return {"chapters": chapters}
+
+
+class TocExtractionService:
+    def __init__(self, store: MetadataStore, filesystem: FilesystemManager) -> None:
+        self.store = store
+        self.filesystem = filesystem
+        self.parser = PDFParser(storage=store, filesystem=filesystem)
+
+    async def extract_toc(self, textbook_id: str) -> dict:
+        textbook = await self.store.get_textbook(textbook_id)
+        if not textbook:
+            raise ValueError("Textbook not found")
+        filepath = textbook.get("filepath")
+        doc = fitz.open(filepath)
+        try:
+            toc_entries = self.parser.extract_toc(doc)
+            if not toc_entries:
+                toc_entries = await self.parser.ai_toc_fallback(doc)
+            return _build_toc_payload(toc_entries, len(doc))
+        finally:
+            doc.close()
+
+
+async def process_pdf_background(textbook_id: str):
+    _job_status[textbook_id] = {
+        "status": "processing",
+        "chapters_found": 0,
+        "progress": 10,
+        "step": "Extracting table of contents...",
+    }
+    try:
         storage = get_storage()
         await storage.initialize()
         filesystem = get_filesystem()
-        parser = PDFParser(storage=storage, filesystem=filesystem)
+        toc_service = TocExtractionService(storage, filesystem)
+        orchestrator = PipelineOrchestrator(store=storage, toc_service=toc_service)
+        result = await orchestrator.run_toc_phase(textbook_id)
 
-        set_progress(10, "Checking PDF structure...")
-        # Detect flattened PDF early and warn user
-        import fitz as _fitz
-        _doc = _fitz.open(filepath)
-        if parser.is_flattened(_doc):
-            _job_status[textbook_id]["warning"] = (
-                "\u26a0 This PDF appears to be scanned/image-only. "
-                "Text extraction with MinerU may take a very long time "
-                "(potentially hours for large documents). "
-                "Consider using a text-based PDF if available."
+        chapters = result.get("chapters", [])
+        relevance_results = result.get("relevance_results", [])
+        if len(chapters) == 1:
+            await storage.update_chapter_extraction_status(
+                chapters[0]["id"],
+                ExtractionStatus.selected.value,
             )
-        _doc.close()
 
-        set_progress(15, "Parsing PDF...")
-        result = await parser.parse_pdf(filepath, textbook_id, title, on_progress=set_progress)
+        pipeline_status = result.get("pipeline_status", "toc_extracted")
         _job_status[textbook_id] = {
-            "status": "complete",
-            "chapters_found": len(result.chapters),
-            "progress": 100,
-            "step": "Complete!",
+            "status": pipeline_status,
+            "chapters_found": len(chapters),
+            "progress": 0 if pipeline_status == PipelineStatus.error.value else 100,
+            "step": "Failed" if pipeline_status == PipelineStatus.error.value else "TOC extracted",
+            "relevance_results": relevance_results,
+            "error": result.get("error"),
         }
-    except Exception as e:
-        _job_status[textbook_id] = {"status": "error", "error": str(e), "progress": 0, "step": "Failed"}
+    except Exception as exc:
+        _job_status[textbook_id] = {
+            "status": "error",
+            "error": str(exc),
+            "progress": 0,
+            "step": "Failed",
+        }
 
 
 @router.post("/import", response_model=ImportResponse)
@@ -106,40 +202,74 @@ async def import_textbook(
     content = await file.read()
     dest_path.write_bytes(content)
 
-    title = file.filename.replace(".pdf", "").replace("_", " ")
-    await storage.create_textbook(
-        title=title,
-        filepath=str(dest_path),
-        course=course,
-        library_type="course",
+    orchestrator = PipelineOrchestrator(store=storage)
+    start_result = await orchestrator.start_import(
         textbook_id=textbook_id,
+        course_id=course_id,
+        file_path=str(dest_path),
     )
 
-    # Assign textbook to course if course_id was provided
-    if course_id:
-        await storage.assign_textbook_to_course(textbook_id, course_id)
+    _job_status[textbook_id] = {
+        "status": start_result.get("pipeline_status", "uploaded"),
+        "chapters_found": 0,
+        "progress": 0,
+        "step": "Uploaded",
+        "error": start_result.get("error"),
+    }
 
-
-    background_tasks.add_task(process_pdf_background, textbook_id, str(dest_path), title)
+    if start_result.get("pipeline_status") != PipelineStatus.error.value:
+        background_tasks.add_task(process_pdf_background, textbook_id)
 
     return ImportResponse(
         textbook_id=textbook_id,
         job_id=textbook_id,
+        status=start_result.get("pipeline_status", "uploaded"),
         message="Processing started",
     )
 
 
 @router.get("/{textbook_id}/status", response_model=StatusResponse)
 async def get_status(textbook_id: str):
-    status = _job_status.get(textbook_id, {"status": "not_found"})
+    storage = get_storage()
+    await storage.initialize()
+    textbook = await storage.get_textbook(textbook_id)
+
+    pipeline_status: str = (textbook.get("pipeline_status") if textbook else None) or "not_found"
+    chapters = await storage.list_chapters(textbook_id) if textbook else []
+    legacy = _job_status.get(textbook_id, {})
+    relevance_results = legacy.get("relevance_results")
+    relevance_map = {item.get("chapter_id"): item for item in (relevance_results or [])}
+
+    chapter_payload = []
+    for chapter in chapters:
+        relevance = relevance_map.get(chapter.get("id"), {})
+        chapter_payload.append(
+            ChapterWithStatus(
+                id=chapter.get("id", ""),
+                title=chapter.get("title", ""),
+                chapter_number=_coerce_int(chapter.get("chapter_number"), 0),
+                page_start=_coerce_int(chapter.get("page_start"), 0),
+                page_end=_coerce_int(chapter.get("page_end"), 0),
+                extraction_status=chapter.get(
+                    "extraction_status",
+                    ExtractionStatus.pending.value,
+                ),
+                relevance_score=relevance.get("relevance_score"),
+                matched_topics=relevance.get("matched_topics"),
+            )
+        )
+
     return StatusResponse(
         textbook_id=textbook_id,
-        status=status.get("status", "not_found"),
-        chapters_found=status.get("chapters_found", 0),
-        error=status.get("error"),
-        warning=status.get("warning"),
-        progress=status.get("progress", 0),
-        step=status.get("step"),
+        pipeline_status=pipeline_status,
+        chapters=chapter_payload,
+        relevance_results=relevance_results,
+        status=legacy.get("status", pipeline_status),
+        chapters_found=legacy.get("chapters_found", len(chapter_payload)),
+        error=legacy.get("error"),
+        warning=legacy.get("warning"),
+        progress=legacy.get("progress", 0),
+        step=legacy.get("step"),
     )
 
 
@@ -243,3 +373,101 @@ async def recommend_textbooks(body: RecommendRequest):
         provider=provider,
     )
     return recommendations
+
+
+# ---------------------------------------------------------------------------
+# Chapter verification and deferred extraction endpoints
+# ---------------------------------------------------------------------------
+
+
+class ExtractDeferredRequest(BaseModel):
+    chapter_ids: list[str]
+
+
+@router.post("/{textbook_id}/verify-chapters")
+async def verify_chapters(
+    textbook_id: str,
+    body: ChapterVerificationRequest,
+    background_tasks: BackgroundTasks,
+):
+    """Select chapters for extraction. Textbook must be in toc_extracted state."""
+    storage = get_storage()
+    await storage.initialize()
+
+    textbook = await storage.get_textbook(textbook_id)
+    if not textbook:
+        raise HTTPException(status_code=404, detail="Textbook not found")
+
+    if textbook.get("pipeline_status") != PipelineStatus.toc_extracted.value:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Textbook must be in '{PipelineStatus.toc_extracted.value}' state to verify chapters",
+        )
+
+    orchestrator = PipelineOrchestrator(store=storage)
+    await orchestrator.submit_verification(textbook_id, body.selected_chapter_ids)
+    background_tasks.add_task(
+        orchestrator.run_extraction_phase, textbook_id, body.selected_chapter_ids
+    )
+
+    return {"status": "extracting", "selected_count": len(body.selected_chapter_ids)}
+
+
+@router.post("/{textbook_id}/extract-deferred")
+async def extract_deferred(
+    textbook_id: str,
+    body: ExtractDeferredRequest,
+    background_tasks: BackgroundTasks,
+):
+    """Extract previously deferred chapters. Textbook must be partially or fully extracted."""
+    storage = get_storage()
+    await storage.initialize()
+
+    textbook = await storage.get_textbook(textbook_id)
+    if not textbook:
+        raise HTTPException(status_code=404, detail="Textbook not found")
+
+    valid_states = {
+        PipelineStatus.partially_extracted.value,
+        PipelineStatus.fully_extracted.value,
+    }
+    if textbook.get("pipeline_status") not in valid_states:
+        raise HTTPException(
+            status_code=409,
+            detail="Textbook must be in 'partially_extracted' or 'fully_extracted' state",
+        )
+
+    orchestrator = PipelineOrchestrator(store=storage)
+    await orchestrator.run_deferred_extraction(textbook_id, body.chapter_ids)
+    background_tasks.add_task(
+        orchestrator.run_extraction_phase, textbook_id, body.chapter_ids
+    )
+
+    return {"status": "extracting"}
+
+
+@router.get("/{textbook_id}/extraction-progress")
+async def extraction_progress(textbook_id: str):
+    """Return per-chapter extraction status and overall pipeline status."""
+    storage = get_storage()
+    await storage.initialize()
+
+    textbook = await storage.get_textbook(textbook_id)
+    if not textbook:
+        raise HTTPException(status_code=404, detail="Textbook not found")
+
+    chapters = await storage.list_chapters(textbook_id)
+    return {
+        "pipeline_status": textbook.get("pipeline_status", "unknown"),
+        "chapters": [
+            {
+                "id": ch["id"],
+                "title": ch["title"],
+                "chapter_number": ch["chapter_number"],
+                "page_start": ch["page_start"],
+                "page_end": ch["page_end"],
+                "extraction_status": ch.get("extraction_status", "pending"),
+            }
+            for ch in chapters
+        ],
+    }

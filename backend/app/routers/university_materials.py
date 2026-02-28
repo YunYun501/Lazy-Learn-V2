@@ -1,10 +1,13 @@
 import uuid
 from pathlib import Path
-from typing import Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 
-from app.core.config import settings
+from app.core.config import get_deepseek_api_key, settings
+from app.services.ai_router import AIRouter
+from app.services.material_summarizer import MaterialSummarizer
+from app.services.relevance_matcher import RelevanceMatcher
+from app.services.retroactive_matcher import RetroactiveMatcher
 from app.services.storage import MetadataStore
 
 router = APIRouter(prefix="/api/university-materials", tags=["university_materials"])
@@ -16,8 +19,27 @@ def get_storage() -> MetadataStore:
     return MetadataStore(db_path=settings.DATA_DIR / "lazy_learn.db")
 
 
+async def _summarize_and_match_bg(material_id: str, filepath: str, course_id: str) -> None:
+    """Background task: summarize uploaded material, then run retroactive matching if textbooks exist."""
+    store = get_storage()
+    await store.initialize()
+
+    api_key = await get_deepseek_api_key()
+    ai_router = AIRouter(deepseek_api_key=api_key, openai_api_key=settings.OPENAI_API_KEY)
+
+    summarizer = MaterialSummarizer(store=store, ai_router=ai_router)
+    await summarizer.summarize(material_id, filepath, course_id)
+
+    textbooks = await store.get_course_textbooks(course_id)
+    if textbooks:
+        relevance_matcher = RelevanceMatcher(store=store, ai_router=ai_router)
+        retro_matcher = RetroactiveMatcher(store=store, relevance_matcher=relevance_matcher)
+        await retro_matcher.on_material_summarized(course_id)
+
+
 @router.post("/upload")
 async def upload_material(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     course_id: str = Form(...),
 ):
@@ -51,6 +73,9 @@ async def upload_material(
         file_type=suffix.lstrip("."),
         filepath=str(dest),
     )
+
+    background_tasks.add_task(_summarize_and_match_bg, material["id"], str(dest), course_id)
+
     return material
 
 
