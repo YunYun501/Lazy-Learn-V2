@@ -529,7 +529,7 @@ Max Concurrent: 5 (Wave 2)
 
 ### Wave 2 — Core Services (MAX PARALLEL after Wave 1)
 
-- [ ] 4. Pipeline State Machine + Orchestrator
+- [x] 4. Pipeline State Machine + Orchestrator
 
   **What to do**:
   - **RED**: Write `backend/tests/test_pipeline_orchestrator.py` with tests:
@@ -627,7 +627,7 @@ Max Concurrent: 5 (Wave 2)
   - Files: `backend/app/services/pipeline_orchestrator.py`, `backend/tests/test_pipeline_orchestrator.py`
   - Pre-commit: `pytest backend/tests/test_pipeline_orchestrator.py -v`
 
-- [ ] 5. Material Summarizer Service
+- [x] 5. Material Summarizer Service
 
   **What to do**:
   - **RED**: Write `backend/tests/test_material_summarizer.py` with tests:
@@ -716,7 +716,7 @@ Max Concurrent: 5 (Wave 2)
   - Files: `backend/app/services/material_summarizer.py`, `backend/tests/test_material_summarizer.py`
   - Pre-commit: `pytest backend/tests/test_material_summarizer.py -v`
 
-- [ ] 6. Relevance Matcher Service
+- [x] 6. Relevance Matcher Service
 
   **What to do**:
   - **RED**: Write `backend/tests/test_relevance_matcher.py` with tests:
@@ -805,7 +805,7 @@ Max Concurrent: 5 (Wave 2)
   - Files: `backend/app/services/relevance_matcher.py`, `backend/tests/test_relevance_matcher.py`
   - Pre-commit: `pytest backend/tests/test_relevance_matcher.py -v`
 
-- [ ] 7. Selective Content Extractor Service
+- [x] 7. Selective Content Extractor Service
 
   **What to do**:
   - **RED**: Write `backend/tests/test_content_extractor.py` with tests:
@@ -907,7 +907,7 @@ Max Concurrent: 5 (Wave 2)
   - Files: `backend/app/services/content_extractor.py`, `backend/tests/test_content_extractor.py`
   - Pre-commit: `pytest backend/tests/test_content_extractor.py -v`
 
-- [ ] 8. Retroactive Matching Trigger
+- [x] 8. Retroactive Matching Trigger
 
   **What to do**:
   - **RED**: Write `backend/tests/test_retroactive_matching.py` with tests:
@@ -1270,7 +1270,7 @@ Max Concurrent: 5 (Wave 2)
   - Files: `backend/app/routers/university_materials.py`, `backend/tests/test_material_upload_pipeline.py`
   - Pre-commit: `pytest backend/tests/test_material_upload_pipeline.py -v`
 
-- [ ] 12. Extract CoursePreviewView Component from BookshelfPage
+- [x] 12. Extract CoursePreviewView Component from BookshelfPage
 
   **What to do**:
   - **RED**: Write `frontend/src/__tests__/CoursePreviewView.test.tsx` with tests:
