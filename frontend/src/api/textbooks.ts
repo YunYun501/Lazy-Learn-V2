@@ -35,10 +35,10 @@ export async function getTextbooks(course?: string): Promise<Textbook[]> {
   return res.json()
 }
 
-export async function importTextbook(file: File, course?: string): Promise<ImportJob> {
+export async function importTextbook(file: File, courseId?: string | null): Promise<ImportJob> {
   const formData = new FormData()
   formData.append('file', file)
-  if (course) formData.append('course', course)
+  if (courseId) formData.append('course_id', courseId)
   const res = await fetch(`${BASE_URL}/api/textbooks/import`, {
     method: 'POST',
     body: formData,
