@@ -83,13 +83,11 @@ class PipelineOrchestrator:
 
             relevance_results: list[dict] = []
             course_id = textbook.get("course_id")
-            if course_id:
-                materials = await self.store.list_university_materials(course_id)
-                if materials and self.relevance_service is not None:
-                    relevance_results = await self.relevance_service.match(
-                        chapters_created,
-                        materials,
-                    )
+            if course_id and self.relevance_service is not None:
+                raw = await self.relevance_service.match_chapters(textbook_id, course_id)
+                relevance_results = [
+                    r.model_dump() if hasattr(r, "model_dump") else r for r in raw
+                ]
 
             await self.store.update_textbook_pipeline_status(textbook_id, PipelineStatus.toc_extracted.value)
             return {

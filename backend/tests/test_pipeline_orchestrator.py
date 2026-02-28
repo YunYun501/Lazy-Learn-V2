@@ -105,7 +105,7 @@ async def test_toc_phase_without_materials_skips_relevance():
         }
     )
     relevance_service = MagicMock()
-    relevance_service.match = AsyncMock(return_value=[{"chapter_id": "ch1"}])
+    relevance_service.match_chapters = AsyncMock(return_value=[])
 
     orchestrator = PipelineOrchestrator(
         store=store,
@@ -115,7 +115,7 @@ async def test_toc_phase_without_materials_skips_relevance():
     result = await orchestrator.run_toc_phase("tb1")
 
     assert result["relevance_results"] == []
-    relevance_service.match.assert_not_awaited()
+    relevance_service.match_chapters.assert_awaited_once_with("tb1", "c1")
 
 
 @pytest.mark.asyncio
@@ -142,7 +142,7 @@ async def test_toc_phase_with_materials_includes_relevance():
         }
     )
     relevance_service = MagicMock()
-    relevance_service.match = AsyncMock(return_value=[{"chapter_id": "ch1", "score": 0.5}])
+    relevance_service.match_chapters = AsyncMock(return_value=[{"chapter_id": "ch1", "score": 0.5}])
 
     orchestrator = PipelineOrchestrator(
         store=store,
@@ -152,7 +152,7 @@ async def test_toc_phase_with_materials_includes_relevance():
     result = await orchestrator.run_toc_phase("tb1")
 
     assert result["relevance_results"] == [{"chapter_id": "ch1", "score": 0.5}]
-    relevance_service.match.assert_awaited_once()
+    relevance_service.match_chapters.assert_awaited_once()
 
 
 @pytest.mark.asyncio

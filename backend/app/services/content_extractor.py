@@ -33,6 +33,13 @@ class ContentExtractor:
 
         return results
 
+    async def extract(self, textbook_id: str, chapter_ids: list[str]) -> list[ExtractedContent]:
+        """Adapter for PipelineOrchestrator — looks up PDF path from store."""
+        textbook = await self.store.get_textbook(textbook_id)
+        if not textbook:
+            raise ValueError("Textbook not found")
+        return await self.extract_chapters(textbook_id, chapter_ids, textbook["filepath"])
+
     async def extract_sections(
         self,
         textbook_id: str,

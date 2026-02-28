@@ -31,7 +31,7 @@ def _make_toc_service(chapters: list[dict]) -> MagicMock:
 
 def _make_relevance_service(results: list[dict]) -> MagicMock:
     relevance_service = MagicMock()
-    relevance_service.match = AsyncMock(return_value=results)
+    relevance_service.match_chapters = AsyncMock(return_value=results)
     return relevance_service
 
 
@@ -143,9 +143,9 @@ async def test_full_pipeline_with_materials():
 
     toc_result = await orchestrator.run_toc_phase("tb1")
     assert toc_result["relevance_results"] == relevance_results
-    relevance_service.match.assert_awaited_once_with(
-        toc_result["chapters"],
-        [{"id": "m1"}],
+    relevance_service.match_chapters.assert_awaited_once_with(
+        "tb1",
+        "course1",
     )
 
     verification = await orchestrator.submit_verification("tb1", ["ch1", "ch2"])

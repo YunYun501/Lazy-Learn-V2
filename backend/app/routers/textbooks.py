@@ -7,11 +7,14 @@ import fitz
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from app.core.config import settings
+from app.core.config import get_deepseek_api_key, settings
 from app.models.pipeline_models import ChapterVerificationRequest, ChapterWithStatus, ExtractionStatus, PipelineStatus
+from app.services.ai_router import AIRouter
+from app.services.content_extractor import ContentExtractor
 from app.services.filesystem import FilesystemManager
 from app.services.pdf_parser import PDFParser
 from app.services.pipeline_orchestrator import PipelineOrchestrator
+from app.services.relevance_matcher import RelevanceMatcher
 from app.services.storage import MetadataStore
 from app.services.textbook_finder import TextbookRecommendation, find_textbooks
 
@@ -146,7 +149,16 @@ async def process_pdf_background(textbook_id: str):
         await storage.initialize()
         filesystem = get_filesystem()
         toc_service = TocExtractionService(storage, filesystem)
-        orchestrator = PipelineOrchestrator(store=storage, toc_service=toc_service)
+        api_key = await get_deepseek_api_key()
+        ai_router = AIRouter(deepseek_api_key=api_key, openai_api_key=settings.OPENAI_API_KEY)
+        relevance_service = RelevanceMatcher(store=storage, ai_router=ai_router)
+        extraction_service = ContentExtractor(store=storage)
+        orchestrator = PipelineOrchestrator(
+            store=storage,
+            toc_service=toc_service,
+            relevance_service=relevance_service,
+            extraction_service=extraction_service,
+        )
         result = await orchestrator.run_toc_phase(textbook_id)
 
         chapters = result.get("chapters", [])
@@ -404,7 +416,8 @@ async def verify_chapters(
             detail=f"Textbook must be in '{PipelineStatus.toc_extracted.value}' state to verify chapters",
         )
 
-    orchestrator = PipelineOrchestrator(store=storage)
+    extraction_service = ContentExtractor(store=storage)
+    orchestrator = PipelineOrchestrator(store=storage, extraction_service=extraction_service)
     await orchestrator.submit_verification(textbook_id, body.selected_chapter_ids)
     background_tasks.add_task(
         orchestrator.run_extraction_phase, textbook_id, body.selected_chapter_ids
@@ -437,7 +450,8 @@ async def extract_deferred(
             detail="Textbook must be in 'partially_extracted' or 'fully_extracted' state",
         )
 
-    orchestrator = PipelineOrchestrator(store=storage)
+    extraction_service = ContentExtractor(store=storage)
+    orchestrator = PipelineOrchestrator(store=storage, extraction_service=extraction_service)
     await orchestrator.run_deferred_extraction(textbook_id, body.chapter_ids)
     background_tasks.add_task(
         orchestrator.run_extraction_phase, textbook_id, body.chapter_ids
