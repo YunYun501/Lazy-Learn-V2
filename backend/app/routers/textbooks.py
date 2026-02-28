@@ -2,7 +2,7 @@ import shutil
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from app.core.config import settings
@@ -84,6 +84,7 @@ async def import_textbook(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     course: Optional[str] = None,
+    course_id: Optional[str] = Form(None),
 ):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
@@ -91,6 +92,13 @@ async def import_textbook(
     textbook_id = str(uuid.uuid4())
     storage = get_storage()
     await storage.initialize()
+
+    # Validate course_id if provided
+    if course_id:
+        course_record = await storage.get_course(course_id)
+        if course_record is None:
+            raise HTTPException(status_code=404, detail="Course not found")
+
     filesystem = get_filesystem()
 
     dirs = filesystem.setup_textbook_dirs(textbook_id)
@@ -106,6 +114,11 @@ async def import_textbook(
         library_type="course",
         textbook_id=textbook_id,
     )
+
+    # Assign textbook to course if course_id was provided
+    if course_id:
+        await storage.assign_textbook_to_course(textbook_id, course_id)
+
 
     background_tasks.add_task(process_pdf_background, textbook_id, str(dest_path), title)
 

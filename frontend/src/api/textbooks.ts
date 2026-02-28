@@ -5,6 +5,7 @@ export interface Textbook {
   title: string
   filepath: string
   course: string | null
+  course_id: string | null
   library_type: string
   processed_at: string | null
 }
