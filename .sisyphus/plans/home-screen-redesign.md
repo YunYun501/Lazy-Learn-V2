@@ -1183,7 +1183,7 @@ Max Concurrent: 6 (Wave 1)
 
 ---
 
-- [ ] 11. Course Preview View — 3 Sub-Panels + "Begin Study" Navigation
+- [x] 11. Course Preview View — 3 Sub-Panels + "Begin Study" Navigation
 
   **What to do**:
   - Implement COURSE_PREVIEW_VIEW in BookshelfPage (when `viewState === 'preview'`):
@@ -1306,7 +1306,7 @@ Max Concurrent: 6 (Wave 1)
 
 ---
 
-- [ ] 12. CSS Pixel Art Scenery Component
+- [x] 12. CSS Pixel Art Scenery Component
 
   **What to do**:
   - Create a pixel art scenery in the middle column of HOME_VIEW using **CSS-only** techniques:
@@ -1383,7 +1383,7 @@ Max Concurrent: 6 (Wave 1)
 
 ---
 
-- [ ] 13. Course Bar Progress Indicator — Upload Progress on Course Item
+- [x] 13. Course Bar Progress Indicator — Upload Progress on Course Item
 
   **What to do**:
   - Add upload progress tracking to course items in the course list:
@@ -1460,7 +1460,7 @@ Max Concurrent: 6 (Wave 1)
 
 ---
 
-- [ ] 14. BookshelfPage.test.tsx Rewrite — Full Test Coverage
+- [x] 14. BookshelfPage.test.tsx Rewrite — Full Test Coverage
 
   **What to do**:
   - Delete existing `frontend/src/__tests__/BookshelfPage.test.tsx` entirely and rewrite for the new BookshelfPage:

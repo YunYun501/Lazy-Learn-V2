@@ -139,6 +139,18 @@
   color: var(--color-text-muted);
 }
 
+.course-item-progress {
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  color: var(--color-accent-secondary);
+  display: block;
+  margin-top: 2px;
+}
+
+.course-item.upload-error {
+  border-color: var(--color-accent-primary);
+}
+
 /* === Sidebar Actions === */
 .sidebar-actions {
   display: flex;
@@ -258,4 +270,270 @@
   color: var(--color-accent-secondary);
   margin: 0;
   line-height: 2;
+}
+
+
+/* === Course Preview View === */
+.course-preview-view {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  padding-top: calc(var(--space-6) + 40px);
+}
+
+.course-preview-view .course-sidebar {
+  flex: 0 0 220px;
+  width: 220px;
+}
+
+.preview-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow: hidden;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+.preview-course-title {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-sm);
+  color: var(--color-text-primary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.preview-panels {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-4);
+  flex: 1;
+  overflow: hidden;
+}
+
+.textbooks-panel,
+.materials-panel,
+.tbd-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow: hidden;
+}
+
+.panel-title {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-primary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-pixel);
+}
+
+.panel-message {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-4);
+  line-height: 2;
+  margin: 0;
+}
+
+.preview-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-bright) var(--color-bg-panel);
+}
+
+.panel-footer {
+  flex-shrink: 0;
+  padding-top: var(--space-3);
+  border-top: var(--border-pixel);
+}
+
+/* === Textbook Items === */
+.preview-textbook-item {
+  padding: var(--space-3);
+  background: var(--color-bg-secondary);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.preview-textbook-item:hover {
+  border-color: var(--color-border-bright);
+  box-shadow: 0 0 8px rgba(74, 122, 170, 0.4);
+}
+.preview-textbook-item.selected {
+  border-color: var(--color-accent-primary);
+  background: var(--color-bg-panel-light);
+  box-shadow: 0 0 12px rgba(233, 69, 96, 0.4);
+}
+
+.textbook-item-title {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-primary);
+  display: block;
+  line-height: 1.6;
+}
+
+/* === Material Items === */
+.preview-material-item {
+  padding: var(--space-3);
+  background: var(--color-bg-secondary);
+  border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.material-item-title {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-primary);
+  display: block;
+  line-height: 1.6;
+}
+
+.material-item-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.material-type-badge {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--color-text-on-accent);
+  background: var(--color-accent-primary);
+  padding: 2px var(--space-2);
+}
+
+.material-item-date {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--color-text-muted);
+}
+
+
+/* === Pixel Art Study Desk Scene === */
+
+/* Outer container: fills scenery-placeholder, flex column, desk at bottom */
+.scene-container {
+  width: 100%;
+  height: 100%;
+  align-self: stretch;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* Night sky window — top ~60% of the scene */
+.scene-window {
+  flex: 0 0 60%;
+  background: var(--color-bg-primary);
+  position: relative;
+  overflow: hidden;
+  border-bottom: var(--border-pixel);
+}
+
+/* Pixel stars scattered across the night sky */
+.scene-star {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--color-text-primary);
+}
+
+.scene-star-1 { top: 15%; left: 20%; }
+.scene-star-2 { top: 30%; left: 60%; }
+.scene-star-3 { top: 50%; left: 35%; width: 2px; height: 2px; }
+.scene-star-4 { top: 20%; left: 80%; width: 3px; height: 3px; }
+.scene-star-5 { top: 40%; left: 50%; width: 2px; height: 2px; }
+
+/* Desk surface — bottom portion of the scene */
+.scene-desk {
+  flex: 1;
+  background: var(--color-bg-panel);
+  position: relative;
+  border-top: var(--border-pixel);
+}
+
+/* Lamp assembly — right side, extends above desk border into window area */
+.scene-lamp {
+  position: absolute;
+  right: 24px;
+  top: -44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Flat wide lamp head */
+.scene-lamp-head {
+  width: 40px;
+  height: 8px;
+  background: var(--color-accent-secondary);
+}
+
+/* Thin vertical lamp arm */
+.scene-lamp-arm {
+  width: 4px;
+  height: 30px;
+  background: var(--color-text-muted);
+}
+
+/* Weighted lamp base resting on desk */
+.scene-lamp-base {
+  width: 20px;
+  height: 6px;
+  background: var(--color-text-muted);
+}
+
+/* Warm ambient glow cast below the lamp */
+.scene-lamp-glow {
+  position: absolute;
+  right: 0;
+  top: -50px;
+  width: 90px;
+  height: 90px;
+  background: radial-gradient(ellipse at 70% 15%, var(--color-accent-secondary), transparent 65%);
+  opacity: 0.25;
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+/* Books standing upright on the desk */
+.scene-book {
+  position: absolute;
+  bottom: 0;
+  left: 30px;
+  width: 16px;
+  height: 24px;
+  background: var(--color-accent-primary);
+}
+
+/* Second book — different position and accent color */
+.scene-book-2 {
+  left: 50px;
+  height: 20px;
+  background: var(--color-accent-secondary);
 }
