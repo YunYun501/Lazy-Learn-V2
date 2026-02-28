@@ -1,0 +1,92 @@
+{
+  "spike_date": "2026-02-28",
+  "pdf_used": "data/textbooks/da616ad6-23a8-4ed4-9e9c-8a7a5ef87e10/original.pdf",
+  "pdf_pages": 548,
+  "mineru_import": "from mineru.cli.common import do_parse",
+
+  "page_range_params": {
+    "work": true,
+    "notes": "start_page_id and end_page_id correctly limit extraction to the specified page range. IMPORTANT: output page_idx is REBASED to 0 (relative to the extracted range, NOT the original PDF page numbers). So if you extract pages 22-35, output page_idx will be 0-13. Caller must add start_page_id offset to get original page numbers."
+  },
+
+  "content_types": {
+    "text": {
+      "description": "Regular text content (paragraphs, headings, lists)",
+      "keys": ["type", "text", "text_level", "bbox", "page_idx"],
+      "example": {
+        "type": "text",
+        "text": "following the existing policy, $\\pi$. The value of this way of behaving is",
+        "text_level": 1,
+        "bbox": [117, 109, 716, 129],
+        "page_idx": 0
+      }
+    },
+    "equation": {
+      "description": "Mathematical equations with LaTeX representation and rendered image",
+      "keys": ["type", "text", "text_format", "img_path", "bbox", "page_idx"],
+      "example": {
+        "type": "equation",
+        "text": "$$\\begin{array}{rcl} q_{\\pi}(s,a) &\\doteq& \\mathbb{E}[R_t ...]$$",
+        "text_format": "latex",
+        "img_path": "images/75af810d55b98a5f...jpg",
+        "bbox": [166, 140, 500, 200],
+        "page_idx": 0
+      }
+    },
+    "image": {
+      "description": "Figures and diagrams with optional caption and footnote",
+      "keys": ["type", "img_path", "image_caption", "image_footnote", "bbox", "page_idx"],
+      "example": {
+        "type": "image",
+        "img_path": "images/bcb2600f7656bfe2...jpg",
+        "image_caption": ["Figure 4.2: The sequence of policies found by policy iteration..."],
+        "image_footnote": [],
+        "bbox": [100, 200, 800, 600],
+        "page_idx": 3
+      }
+    },
+    "table": {
+      "description": "Tables (detected by MinerU table model)",
+      "keys": ["type", "text", "img_path", "bbox", "page_idx"],
+      "notes": "Tables are less common in this textbook. The table type was found in pages 200-205."
+    },
+    "discarded": {
+      "description": "Headers, footers, page numbers — content to skip",
+      "keys": ["type", "text", "bbox", "page_idx"],
+      "example": {
+        "type": "discarded",
+        "text": "Chapter 4: Dynamic Programming",
+        "bbox": [603, 58, 878, 74],
+        "page_idx": 0
+      }
+    }
+  },
+
+  "content_type_mapping_to_enum": {
+    "text": "text",
+    "equation": "equation",
+    "image": "figure",
+    "table": "table",
+    "discarded": "SKIP (do not store)"
+  },
+
+  "performance": {
+    "14_pages_first_call": "57s (includes 22s model init)",
+    "12_pages_second_call": "85s (includes 22s model init — reinitializes each call)",
+    "7_pages_third_call": "14s (model init faster, possibly cached)",
+    "note": "Model initialization adds ~22s per call. For batch efficiency, extract all selected chapters in a single call with the widest page range that covers them all."
+  },
+
+  "multi_call_safety": {
+    "conflicts": false,
+    "notes": "Each call uses tempfile.mkdtemp() for unique temp dirs. No conflicts observed across 3 sequential calls."
+  },
+
+  "recommendations_for_task_7": {
+    "page_idx_offset": "When processing MinerU output, add start_page_id to each entry's page_idx to get the original PDF page number.",
+    "batch_strategy": "For multiple chapters, batch into a single MinerU call covering the widest page range. Then split output by page_idx ranges per chapter.",
+    "type_filtering": "Filter out type='discarded'. Map 'image' to 'figure' in our ContentType enum. All other types map directly.",
+    "equation_handling": "Equations have both LaTeX text and rendered image (img_path). Store both.",
+    "image_captions": "Images may have image_caption (list) and image_footnote (list). Store caption as title."
+  }
+}

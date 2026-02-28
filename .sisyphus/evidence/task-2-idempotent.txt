@@ -1,0 +1,11 @@
+=== Idempotency Test ===
+Calling initialize() first time...
+[PASS] First initialize() succeeded
+Calling initialize() second time...
+[PASS] Second initialize() succeeded
+Verifying schema...
+[PASS] New tables created: ['sections', 'extracted_content', 'material_summaries']
+[PASS] extraction_status column added to chapters
+[PASS] pipeline_status column added to textbooks
+
+=== All Idempotency Checks Passed ===

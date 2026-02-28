@@ -58,6 +58,36 @@ CREATE TABLE IF NOT EXISTS university_materials (
     filepath TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+""";
+
+MIGRATE_V2_SQL = """
+CREATE TABLE IF NOT EXISTS sections (
+    id TEXT PRIMARY KEY,
+    chapter_id TEXT NOT NULL,
+    section_number INTEGER,
+    title TEXT,
+    page_start INTEGER,
+    page_end INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS extracted_content (
+    id TEXT PRIMARY KEY,
+    chapter_id TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    title TEXT,
+    content TEXT,
+    file_path TEXT,
+    page_number INTEGER,
+    order_index INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS material_summaries (
+    id TEXT PRIMARY KEY,
+    material_id TEXT NOT NULL,
+    course_id TEXT NOT NULL,
+    summary_json TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 class MetadataStore:
@@ -70,6 +100,9 @@ class MetadataStore:
         async with aiosqlite.connect(self.db_path) as db:
             await db.executescript(CREATE_TABLES_SQL)
             await db.commit()
+            
+            # Call v2 migration
+            await self._migrate_v2(db)
             
             # Add course_id column to textbooks if missing (idempotent migration)
             try:
@@ -84,6 +117,26 @@ class MetadataStore:
                 (str(uuid.uuid4()), "Math Library", datetime.utcnow().isoformat())
             )
             await db.commit()
+    
+    async def _migrate_v2(self, db):
+        """Apply v2 schema migrations: new tables and columns."""
+        # Create new tables
+        await db.executescript(MIGRATE_V2_SQL)
+        await db.commit()
+        
+        # Add extraction_status column to chapters if missing
+        try:
+            await db.execute("ALTER TABLE chapters ADD COLUMN extraction_status TEXT DEFAULT 'pending'")
+            await db.commit()
+        except Exception:
+            pass  # Column already exists
+        
+        # Add pipeline_status column to textbooks if missing
+        try:
+            await db.execute("ALTER TABLE textbooks ADD COLUMN pipeline_status TEXT DEFAULT 'uploaded'")
+            await db.commit()
+        except Exception:
+            pass  # Column already exists
 
     # --- Textbooks ---
 
@@ -351,6 +404,127 @@ class MetadataStore:
             async with db.execute(
                 "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at",
                 (conversation_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    # --- Sections (v2) ---
+    
+    async def create_section(self, section_data: dict) -> str:
+        """Create a section record. Returns the section ID."""
+        section_id = str(uuid.uuid4())
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT INTO sections (id, chapter_id, section_number, title, page_start, page_end) VALUES (?, ?, ?, ?, ?, ?)",
+                (section_id, section_data['chapter_id'], section_data.get('section_number'), section_data.get('title'), section_data.get('page_start'), section_data.get('page_end')),
+            )
+            await db.commit()
+        return section_id
+    
+    async def get_sections_for_chapter(self, chapter_id: str) -> list[dict]:
+        """Get all sections for a chapter."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM sections WHERE chapter_id = ? ORDER BY section_number",
+                (chapter_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+    
+    # --- Extracted Content (v2) ---
+    
+    async def create_extracted_content(self, content_data: dict) -> str:
+        """Create an extracted content record. Returns the content ID."""
+        content_id = str(uuid.uuid4())
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT INTO extracted_content (id, chapter_id, content_type, title, content, file_path, page_number, order_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (content_id, content_data['chapter_id'], content_data['content_type'], content_data.get('title'), content_data.get('content'), content_data.get('file_path'), content_data.get('page_number'), content_data.get('order_index')),
+            )
+            await db.commit()
+        return content_id
+    
+    async def get_extracted_content_for_chapter(self, chapter_id: str) -> list[dict]:
+        """Get all extracted content for a chapter."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM extracted_content WHERE chapter_id = ? ORDER BY order_index",
+                (chapter_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+    
+    # --- Material Summaries (v2) ---
+    
+    async def create_material_summary(self, summary_data: dict) -> str:
+        """Create or replace a material summary record. Returns the summary ID."""
+        material_id = summary_data['material_id']
+        async with aiosqlite.connect(self.db_path) as db:
+            # Check if summary already exists
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT id FROM material_summaries WHERE material_id = ?",
+                (material_id,),
+            ) as cursor:
+                existing = await cursor.fetchone()
+            
+            if existing:
+                # Update existing summary
+                summary_id = existing['id']
+                await db.execute(
+                    "UPDATE material_summaries SET course_id = ?, summary_json = ?, created_at = ? WHERE material_id = ?",
+                    (summary_data['course_id'], summary_data.get('summary_json'), datetime.utcnow().isoformat(), material_id),
+                )
+            else:
+                # Create new summary
+                summary_id = str(uuid.uuid4())
+                await db.execute(
+                    "INSERT INTO material_summaries (id, material_id, course_id, summary_json, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (summary_id, material_id, summary_data['course_id'], summary_data.get('summary_json'), datetime.utcnow().isoformat()),
+                )
+            await db.commit()
+        return summary_id
+    
+    async def get_material_summary(self, material_id: str) -> Optional[dict]:
+        """Get a material summary by material_id."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM material_summaries WHERE material_id = ?",
+                (material_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+            return dict(row) if row else None
+    
+    # --- Status Updates (v2) ---
+    
+    async def update_chapter_extraction_status(self, chapter_id: str, status: str) -> None:
+        """Update extraction_status for a chapter."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE chapters SET extraction_status = ? WHERE id = ?",
+                (status, chapter_id),
+            )
+            await db.commit()
+    
+    async def update_textbook_pipeline_status(self, textbook_id: str, status: str) -> None:
+        """Update pipeline_status for a textbook."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE textbooks SET pipeline_status = ? WHERE id = ?",
+                (status, textbook_id),
+            )
+            await db.commit()
+    
+    async def get_chapters_by_extraction_status(self, textbook_id: str, status: str) -> list[dict]:
+        """Get all chapters for a textbook with a specific extraction_status."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM chapters WHERE textbook_id = ? AND extraction_status = ? ORDER BY page_start",
+                (textbook_id, status),
             ) as cursor:
                 rows = await cursor.fetchall()
             return [dict(row) for row in rows]

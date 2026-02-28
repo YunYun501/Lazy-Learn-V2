@@ -1,0 +1,4 @@
+test_page_range_extraction: PASSED
+test_content_type_vocabulary: PASSED
+test_multiple_sequential_calls: PASSED
+All 3 spike tests PASS. MinerU page range works. Types: text, equation, image, table, discarded
