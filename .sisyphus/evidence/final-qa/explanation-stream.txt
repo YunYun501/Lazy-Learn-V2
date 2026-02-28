@@ -1,0 +1,76 @@
+data: ###
+
+data:  
+
+data: 1
+
+data: )
+
+data:  Introduction
+
+data: /
+
+data: Definition
+
+data:   
+
+
+data: The
+
+data:  Z
+
+data: -transform
+
+data:  is
+
+data:  a
+
+data:  mathematical
+
+data:  tool
+
+data:  used
+
+data:  to
+
+data:  convert
+
+data:  discrete
+
+data: -time
+
+data:  signals
+
+data:  and
+
+data:  systems
+
+data:  into
+
+data:  the
+
+data:  complex
+
+data:  frequency
+
+data:  domain
+
+data: .
+
+data:  It
+
+data:  plays
+
+data:  a
+
+data:  similar
+
+data:  role
+
+data:  for
+
+data:  discrete
+
+data: -time
+
+data: 

@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.core.config import settings
+from app.core.config import settings, get_deepseek_api_key
 from app.services.deepseek_provider import DeepSeekProvider
 from app.services.explanation_generator import ExplanationGenerator, SelectedChapter
 
@@ -30,7 +30,7 @@ async def _sse_generator(
     query: str,
 ) -> AsyncGenerator[str, None]:
     """Wrap ExplanationGenerator output as SSE events."""
-    provider = DeepSeekProvider(api_key=settings.DEEPSEEK_API_KEY)
+    provider = DeepSeekProvider(api_key=await get_deepseek_api_key())
     data_dir = Path(settings.DATA_DIR)
     generator = ExplanationGenerator(deepseek_provider=provider, data_dir=data_dir)
 

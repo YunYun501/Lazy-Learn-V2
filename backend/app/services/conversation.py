@@ -71,6 +71,12 @@ class ConversationHandler:
         # Load history
         history = await self.get_messages(conversation_id)
 
+        # Auto-create conversation record if it doesn't exist yet
+        if not history:
+            await self.store.create_conversation(
+                conversation_id=conversation_id,
+                query=message,
+            )
         # Build messages list: system + history + new user message
         messages = [{"role": "system", "content": CONVERSATION_SYSTEM_PROMPT}]
         for msg in history:

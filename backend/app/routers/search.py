@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.core.config import settings
+from app.core.config import settings, get_deepseek_api_key
 from app.models.ai_models import ClassifiedMatch, ConceptExtraction
 from app.services.concept_extractor import ConceptExtractor
 from app.services.deepseek_provider import DeepSeekProvider
@@ -16,8 +16,8 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 # Dependency helpers
 # ---------------------------------------------------------------------------
 
-def get_deepseek() -> DeepSeekProvider:
-    return DeepSeekProvider(api_key=settings.DEEPSEEK_API_KEY)
+async def get_deepseek() -> DeepSeekProvider:
+    return DeepSeekProvider(api_key=await get_deepseek_api_key())
 
 
 def get_filesystem() -> FilesystemManager:
@@ -62,7 +62,7 @@ class QueryResponse(BaseModel):
 @router.post("/extract-concepts", response_model=ConceptExtraction)
 async def extract_concepts(request: ExtractConceptsRequest) -> ConceptExtraction:
     """Step 0: Extract concepts and equation forms from a student's query."""
-    extractor = ConceptExtractor(deepseek_provider=get_deepseek())
+    extractor = ConceptExtractor(deepseek_provider=await get_deepseek())
     return await extractor.extract(request.query)
 
 
@@ -80,7 +80,7 @@ async def keyword_search(request: KeywordSearchRequest) -> list[SearchHit]:
 @router.post("/categorize", response_model=list[ClassifiedMatch])
 async def categorize_matches(request: CategorizeRequest) -> list[ClassifiedMatch]:
     """Step 2: AI categorization of search hits as EXPLAINS or USES."""
-    categorizer = MatchCategorizer(deepseek_provider=get_deepseek())
+    categorizer = MatchCategorizer(deepseek_provider=await get_deepseek())
     return await categorizer.categorize(request.matches, request.concept)
 
 
@@ -90,7 +90,7 @@ async def full_search_query(request: QueryRequest) -> QueryResponse:
 
     This is the main search endpoint used by the frontend.
     """
-    provider = get_deepseek()
+    provider = await get_deepseek()
     fs = get_filesystem()
 
     # Step 0: Extract concepts

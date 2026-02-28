@@ -36,22 +36,47 @@ class StatusResponse(BaseModel):
     status: str
     chapters_found: int = 0
     error: Optional[str] = None
+    warning: Optional[str] = None
+    progress: int = 0
+    step: Optional[str] = None
 
 
 async def process_pdf_background(textbook_id: str, filepath: str, title: str):
-    _job_status[textbook_id] = {"status": "processing", "chapters_found": 0}
+    def set_progress(pct: int, step: str):
+        _job_status[textbook_id]["progress"] = pct
+        _job_status[textbook_id]["step"] = step
+
+    _job_status[textbook_id] = {"status": "processing", "chapters_found": 0, "progress": 0, "step": "Starting import..."}
     try:
+        set_progress(5, "Initializing storage...")
         storage = get_storage()
         await storage.initialize()
         filesystem = get_filesystem()
         parser = PDFParser(storage=storage, filesystem=filesystem)
-        result = await parser.parse_pdf(filepath, textbook_id, title)
+
+        set_progress(10, "Checking PDF structure...")
+        # Detect flattened PDF early and warn user
+        import fitz as _fitz
+        _doc = _fitz.open(filepath)
+        if parser.is_flattened(_doc):
+            _job_status[textbook_id]["warning"] = (
+                "\u26a0 This PDF appears to be scanned/image-only. "
+                "Text extraction with MinerU may take a very long time "
+                "(potentially hours for large documents). "
+                "Consider using a text-based PDF if available."
+            )
+        _doc.close()
+
+        set_progress(15, "Parsing PDF...")
+        result = await parser.parse_pdf(filepath, textbook_id, title, on_progress=set_progress)
         _job_status[textbook_id] = {
             "status": "complete",
             "chapters_found": len(result.chapters),
+            "progress": 100,
+            "step": "Complete!",
         }
     except Exception as e:
-        _job_status[textbook_id] = {"status": "error", "error": str(e)}
+        _job_status[textbook_id] = {"status": "error", "error": str(e), "progress": 0, "step": "Failed"}
 
 
 @router.post("/import", response_model=ImportResponse)
@@ -99,6 +124,9 @@ async def get_status(textbook_id: str):
         status=status.get("status", "not_found"),
         chapters_found=status.get("chapters_found", 0),
         error=status.get("error"),
+        warning=status.get("warning"),
+        progress=status.get("progress", 0),
+        step=status.get("step"),
     )
 
 

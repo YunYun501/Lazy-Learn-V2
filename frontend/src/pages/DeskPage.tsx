@@ -19,7 +19,34 @@ export function DeskPage() {
   const [query, setQuery] = useState('')
   const chatEndRef = useRef<HTMLDivElement>(null)
 
-  const { messages, loading, sendMessage } = useConversation()
+  const conversationIdRef = useRef<string>(crypto.randomUUID())
+
+  async function handleAiSend(query: string): Promise<string> {
+    const res = await fetch('http://127.0.0.1:8000/api/conversations/followup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversation_id: conversationIdRef.current, message: query }),
+    })
+    if (!res.ok) throw new Error(`Chat failed: ${res.status}`)
+
+    // Collect SSE stream into a full string
+    const reader = res.body!.getReader()
+    const decoder = new TextDecoder()
+    let fullText = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const chunk = decoder.decode(value, { stream: true })
+      for (const line of chunk.split('\n')) {
+        if (line.startsWith('data: ') && line.trim() !== 'data: [DONE]') {
+          fullText += line.slice(6)
+        }
+      }
+    }
+    return fullText
+  }
+
+  const { messages, loading, sendMessage } = useConversation(handleAiSend)
   const { panelA, panelB, merged, swapPanels, toggleMerge } = usePanelLayout()
   const { pinnedImages, pinnedFormulas, recentConcepts, pinImage, unpinImage } = usePinnedItems()
 

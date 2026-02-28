@@ -61,6 +61,9 @@ export function BookshelfPage() {
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
+  const [progress, setProgress] = useState(0)
+  const [step, setStep] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -101,9 +104,26 @@ export function BookshelfPage() {
       const poll = setInterval(async () => {
         attempts++
         const status = await getImportStatus(job.job_id)
+
+        // Show warning if flattened PDF detected
+        if (status.warning) {
+          setWarning(status.warning)
+        }
+
+        // Track progress
+        if (status.progress !== undefined) {
+          setProgress(status.progress)
+        }
+        if (status.step) {
+          setStep(status.step)
+        }
+
         if (status.status === 'complete' || status.status === 'error' || attempts > 60) {
           clearInterval(poll)
           setImporting(false)
+          setWarning(null)  // Clear warning when done
+          setProgress(0)
+          setStep(null)
           if (status.status === 'error') {
             setError(`Import failed: ${status.error}`)
           } else {
@@ -114,6 +134,8 @@ export function BookshelfPage() {
     } catch (err) {
       setError(`Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
       setImporting(false)
+      setProgress(0)
+      setStep(null)
     }
     // Reset file input
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -223,6 +245,49 @@ export function BookshelfPage() {
         {error && (
           <div className="bookshelf-error" role="alert">
             {error}
+          </div>
+        )}
+
+        {warning && (
+          <div className="bookshelf-error" role="alert" style={{ backgroundColor: '#fff3cd', borderColor: '#ffc107', color: '#856404' }}>
+            {warning}
+          </div>
+        )}
+
+        {importing && (
+          <div style={{
+            margin: '16px 0',
+            padding: '12px 16px',
+            border: '2px solid var(--color-border, #333)',
+            backgroundColor: 'var(--color-bg-secondary, #1a1a2e)',
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginBottom: '8px',
+              fontFamily: '"Press Start 2P", monospace',
+              fontSize: '10px',
+              color: 'var(--color-text-secondary, #aaa)',
+            }}>
+              <span>{step || 'Starting...'}</span>
+              <span>{progress}%</span>
+            </div>
+            <div style={{
+              width: '100%',
+              height: '16px',
+              backgroundColor: 'var(--color-bg, #0f0f23)',
+              border: '2px solid var(--color-border, #333)',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                width: `${progress}%`,
+                height: '100%',
+                backgroundColor: '#4caf50',
+                transition: 'width 0.5s ease-in-out',
+                imageRendering: 'pixelated' as const,
+                backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.15) 3px, rgba(0,0,0,0.15) 4px)',
+              }} />
+            </div>
           </div>
         )}
 

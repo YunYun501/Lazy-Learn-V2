@@ -20,6 +20,9 @@ export interface ImportStatus {
   status: 'processing' | 'complete' | 'error' | 'not_found'
   chapters_found: number
   error?: string
+  warning?: string
+  progress?: number
+  step?: string
 }
 
 export async function getTextbooks(course?: string): Promise<Textbook[]> {

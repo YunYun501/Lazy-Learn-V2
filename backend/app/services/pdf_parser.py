@@ -1,9 +1,16 @@
 import json
 import logging
+from pathlib import Path
+
 import fitz
 
 from app.services.storage import MetadataStore
 from app.services.filesystem import FilesystemManager
+
+try:
+    from app.services.mineru_parser import MinerUExtractor
+except ImportError:
+    MinerUExtractor = None
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +37,21 @@ class PDFParser:
         self.storage = storage
         self.filesystem = filesystem
         self.ai_provider = ai_provider
+        self.mineru_extractor = None
+
+        if MinerUExtractor is None:
+            logger.info("MinerU module not available; falling back to PyMuPDF text extraction.")
+        else:
+            self.mineru_extractor = MinerUExtractor()
+
+    def is_flattened(self, doc: fitz.Document) -> bool:
+        """Check if PDF is scanned/image-only (no embedded text layer)."""
+        sample_pages = min(5, len(doc))
+        for i in range(sample_pages):
+            text = doc[i].get_text("text").strip()
+            if len(text) > 100:
+                return False
+        return True
 
     def extract_toc(self, doc: fitz.Document) -> list:
         raw_toc = doc.get_toc()
@@ -42,9 +64,9 @@ class PDFParser:
             return [{"level": 1, "title": "Full Document", "page": 1}]
 
         first_pages_text = ""
-        for i in range(min(5, len(doc))):
+        for i in range(min(30, len(doc))):
             first_pages_text += f"\n--- Page {i + 1} ---\n"
-            first_pages_text += doc[i].get_text("text")
+            first_pages_text += str(doc[i].get_text("text"))
 
         messages = [
             {
@@ -57,7 +79,7 @@ class PDFParser:
             },
             {
                 "role": "user",
-                "content": f"Identify chapters from these first pages:\n{first_pages_text[:8000]}",
+                "content": f"Identify chapters from these first pages:\n{first_pages_text[:48000]}",
             },
         ]
 
@@ -103,7 +125,12 @@ class PDFParser:
 
         return saved_paths
 
-    def split_into_chapters(self, doc: fitz.Document, toc_entries: list) -> list:
+    def split_into_chapters(
+        self,
+        doc: fitz.Document,
+        toc_entries: list,
+        mineru_pages: dict[int, str] | None = None,
+    ) -> list:
         total_pages = len(doc)
         chapters = []
 
@@ -112,7 +139,10 @@ class PDFParser:
         if not top_level:
             text = ""
             for i in range(total_pages):
-                text += doc[i].get_text("text")
+                if mineru_pages and (i + 1) in mineru_pages:
+                    text += mineru_pages[i + 1]
+                else:
+                    text += str(doc[i].get_text("text"))
             chapters.append(ParsedChapter("1", "Full Document", 1, total_pages, text))
             return chapters
 
@@ -124,31 +154,56 @@ class PDFParser:
 
             text = ""
             for page_idx in range(page_start - 1, min(page_end, total_pages)):
-                text += doc[page_idx].get_text("text")
+                if mineru_pages and (page_idx + 1) in mineru_pages:
+                    text += mineru_pages[page_idx + 1]
+                else:
+                    text += str(doc[page_idx].get_text("text"))
 
             chapters.append(ParsedChapter(chapter_num, title, page_start, page_end, text))
 
         return chapters
 
-    async def parse_pdf(self, filepath: str, textbook_id: str, title: str) -> ParsedDocument:
+    async def parse_pdf(self, filepath: str, textbook_id: str, title: str, on_progress=None) -> ParsedDocument:
+        def progress(pct: int, step: str):
+            if on_progress:
+                on_progress(pct, step)
+
+        progress(20, "Opening PDF...")
         doc = fitz.open(filepath)
         total_pages = len(doc)
 
+        progress(25, "Extracting table of contents...")
         toc_entries = self.extract_toc(doc)
         if not toc_entries:
+            progress(30, "No TOC found, using AI to detect chapters...")
             toc_entries = await self.ai_toc_fallback(doc)
 
+        progress(40, "Extracting text content...")
+        mineru_pages = None
+        if self.mineru_extractor and self.mineru_extractor.is_available():
+            progress(40, "Running MinerU text extraction (this may take a while)...")
+            pdf_bytes = Path(filepath).read_bytes()
+            mineru_pages = self.mineru_extractor.extract_text_by_pages(
+                pdf_bytes,
+                output_dir=str(self.filesystem.data_dir),
+            )
+
+        progress(55, "Setting up directories...")
         self.filesystem.setup_textbook_dirs(textbook_id)
 
+        progress(60, f"Extracting images from {total_pages} pages...")
         for page_num in range(0, total_pages, 5):
             self.extract_page_images(doc, page_num, textbook_id)
 
-        chapters = self.split_into_chapters(doc, toc_entries)
+        progress(75, "Splitting into chapters...")
+        chapters = self.split_into_chapters(doc, toc_entries, mineru_pages=mineru_pages)
 
+        progress(85, f"Saving {len(chapters)} chapters...")
         for chapter in chapters:
             text_path = self.filesystem.chapter_text_path(textbook_id, chapter.number)
             text_path.write_text(chapter.text, encoding="utf-8")
 
+        progress(92, "Saving metadata to database...")
         for chapter in chapters:
             await self.storage.create_chapter(
                 textbook_id=textbook_id,
@@ -158,6 +213,7 @@ class PDFParser:
                 page_end=chapter.page_end,
             )
 
+        progress(98, "Finalizing...")
         await self.storage.mark_textbook_processed(textbook_id)
         doc.close()
 

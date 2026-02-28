@@ -1,0 +1,43 @@
+{
+  "topic": "Z-transform",
+  "difficulty": "medium",
+  "problems": [
+    {
+      "question": "Find the Z-transform of the discrete-time signal \\( x[n] = 2^n u[n] + 3^{n-1} u[n-1] \\), where \\( u[n] \\) is the unit step function. Specify the region of convergence (ROC).",
+      "steps": [
+        {
+          "explanation": "Recall the standard Z-transform of an exponential sequence multiplied by the unit step function, which is a fundamental result for right-sided sequences.",
+          "equation": "$$ \\mathcal{Z}\\{a^n u[n]\\} = \\frac{1}{1 - a z^{-1}} \\quad \\text{for } |z| > |a| $$",
+          "theorem_used": "Definition of Z-transform for right-sided sequences"
+        },
+        {
+          "explanation": "Apply the standard transform to the first term \\( 2^n u[n] \\) by substituting \\( a = 2 \\).",
+          "equation": "$$ X_1(z) = \\mathcal{Z}\\{2^n u[n]\\} = \\frac{1}{1 - 2 z^{-1}} \\quad \\text{with ROC } |z| > 2 $$",
+          "theorem_used": "Same as above, applied to specific constant"
+        },
+        {
+          "explanation": "For the second term \\( 3^{n-1} u[n-1] \\), identify it as a time-shifted version of \\( 3^n u[n] \\). Define \\( y[n] = 3^n u[n] \\), so \\( y[n-1] = 3^{n-1} u[n-1] \\).",
+          "equation": "$$ \\mathcal{Z}\\{y[n-1]\\} = z^{-1} Y(z) \\quad \\text{where } Y(z) = \\mathcal{Z}\\{3^n u[n]\\} = \\frac{1}{1 - 3 z^{-1}} $$",
+          "theorem_used": "Time-shifting property of Z-transform: \\( x[n-k] \\leftrightarrow z^{-k} X(z) \\) for \\( k \\geq 0 \\)"
+        },
+        {
+          "explanation": "Compute the Z-transform of the second term by applying the time-shifting property to \\( y[n] \\).",
+          "equation": "$$ X_2(z) = \\mathcal{Z}\\{3^{n-1} u[n-1]\\} = z^{-1} \\cdot \\frac{1}{1 - 3 z^{-1}} = \\frac{z^{-1}}{1 - 3 z^{-1}} \\quad \\text{with ROC } |z| > 3 $$",
+          "theorem_used": "Combination of time-shifting and standard transform"
+        },
+        {
+          "explanation": "Combine the transforms of both terms using the linearity property, which states that the Z-transform of a sum is the sum of the transforms.",
+          "equation": "$$ X(z) = X_1(z) + X_2(z) = \\frac{1}{1 - 2 z^{-1}} + \\frac{z^{-1}}{1 - 3 z^{-1}} $$",
+          "theorem_used": "Linearity property of Z-transform"
+        },
+        {
+          "explanation": "Determine the overall region of convergence by finding the intersection of the ROCs from each term, since the transform is valid only where both individual transforms converge.",
+          "equation": "ROC for \\( X_1(z) \\) is \\( |z| > 2 \\), and for \\( X_2(z) \\) is \\( |z| > 3 \\). The intersection is \\( |z| > 3 \\).",
+          "theorem_used": "Property of ROC for sum of Z-transforms: ROC is intersection of individual ROCs"
+        }
+      ],
+      "answer": "$$ X(z) = \\frac{1}{1 - 2 z^{-1}} + \\frac{z^{-1}}{1 - 3 z^{-1}} \\quad \\text{with ROC } |z| > 3 $$\n\n\u26a0\ufe0f **Warning**: AI-generated solutions may contain calculation errors. Verify your answers independently or cross-check with your textbook."
+    }
+  ],
+  "warning_disclaimer": "\u26a0\ufe0f **Warning**: AI-generated solutions may contain calculation errors. Verify your answers independently or cross-check with your textbook."
+}
