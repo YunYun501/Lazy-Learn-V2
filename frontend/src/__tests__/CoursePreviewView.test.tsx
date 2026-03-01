@@ -106,9 +106,10 @@ describe('CoursePreviewView', () => {
     expect(screen.getByText('Problem Set')).toBeInTheDocument()
   })
 
-  it('test_renders_tbd_panel', async () => {
+  it('test_renders_chapter_browser_panel', async () => {
     renderCoursePreview()
-    expect(await screen.findByText('More features coming soon')).toBeInTheDocument()
+    expect(await screen.findByText('Chapters')).toBeInTheDocument()
+    expect(screen.getByText('Select a textbook to browse chapters')).toBeInTheDocument()
   })
 
   it('test_back_button_calls_handler', async () => {

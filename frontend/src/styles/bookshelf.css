@@ -733,3 +733,235 @@
   display: flex;
   gap: var(--space-3);
 }
+
+/* === Chapter Browser === */
+
+.chapter-browser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.chapter-browser-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.chapter-browser-empty {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: var(--space-4);
+  margin: 0;
+  line-height: 1.8;
+}
+
+.chapter-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: var(--transition-fast);
+}
+
+.chapter-row:hover {
+  background: var(--color-bg-panel-light);
+}
+
+.chapter-row.selected {
+  border-color: var(--color-accent-primary);
+}
+
+.chapter-row-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.chapter-row-arrow {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--color-text-secondary);
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.chapter-row-title {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  line-height: 1.6;
+}
+
+.chapter-status-dot {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.chapter-status-dot.extracted {
+  background: var(--color-accent-green, #4caf50);
+}
+
+.chapter-status-dot.not-extracted {
+  background: var(--color-accent-primary);
+}
+
+.chapter-sections {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chapter-section-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.chapter-section-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: var(--space-2);
+}
+
+.chapter-section-pages {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-pixel-xs);
+}
+
+.chapter-browser-footer {
+  flex-shrink: 0;
+  padding-top: var(--space-3);
+  border-top: var(--border-pixel);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chapter-selection-info {
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chapter-selection-info button {
+  background: none;
+  border: none;
+  color: var(--color-accent-primary);
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+
+/* --- Per-chapter extract button --- */
+.chapter-extract-btn {
+  background: none;
+  border: none;
+  color: var(--color-accent-primary);
+  font-family: var(--font-pixel);
+  font-size: var(--font-size-pixel-xs);
+  cursor: pointer;
+  padding: 2px 4px;
+  margin-left: 4px;
+}
+.chapter-extract-btn:hover {
+  color: var(--color-accent-secondary);
+}
+.chapter-extract-btn:disabled {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+/* --- Chapter row right side --- */
+.chapter-row-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* --- Section row expandable --- */
+.chapter-section-row.expandable {
+  cursor: pointer;
+}
+.chapter-section-row.expandable:hover {
+  background: var(--color-bg-panel-light);
+}
+.section-row-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.section-row-arrow {
+  font-family: var(--font-pixel);
+  font-size: 6px;
+  color: var(--color-text-muted);
+  width: 10px;
+  flex-shrink: 0;
+}
+
+/* --- Sub-section rows (level 3) --- */
+.chapter-subsections {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.chapter-subsection-row {
+  padding: 3px 8px;
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--color-text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.chapter-subsection-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.chapter-subsection-pages {
+  flex-shrink: 0;
+  font-size: 6px;
+}

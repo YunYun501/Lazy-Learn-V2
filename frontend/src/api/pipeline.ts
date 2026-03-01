@@ -23,6 +23,14 @@ export interface ExtractionProgressResponse {
   chapters: ChapterWithStatus[]
 }
 
+export interface Section {
+  id: string
+  chapter_id: string
+  section_number: number
+  title: string
+  page_start: number
+  page_end: number
+}
 // ── API functions ────────────────────────────────────────────────────────
 
 export async function getTextbookStatus(
@@ -80,4 +88,35 @@ export async function getExtractionProgress(
   if (!res.ok)
     throw new Error(`Failed to fetch extraction progress: ${res.status}`)
   return res.json()
+}
+
+export async function getChapterSections(
+  textbookId: string,
+  chapterId: string
+): Promise<Section[]> {
+  const res = await fetch(
+    `${BASE_URL}/api/textbooks/${textbookId}/chapters/${chapterId}/sections`
+  )
+  if (!res.ok)
+    throw new Error(`Failed to fetch chapter sections: ${res.status}`)
+  return res.json()
+}
+
+export async function getSectionSubsections(
+  textbookId: string,
+  sectionId: string
+): Promise<Section[]> {
+  const res = await fetch(
+    `${BASE_URL}/api/textbooks/${textbookId}/sections/${sectionId}/subsections`
+  )
+  if (!res.ok)
+    throw new Error(`Failed to fetch sub-sections: ${res.status}`)
+  return res.json()
+}
+
+export async function getTextbookChapters(
+  textbookId: string
+): Promise<import('../types/pipeline').ChapterWithStatus[]> {
+  const data = await getTextbookStatus(textbookId)
+  return data.chapters
 }

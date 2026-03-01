@@ -138,6 +138,18 @@ class MetadataStore:
         except Exception:
             pass  # Column already exists
 
+        # Add parent_section_id and level columns to sections if missing
+        try:
+            await db.execute("ALTER TABLE sections ADD COLUMN parent_section_id TEXT")
+            await db.commit()
+        except Exception:
+            pass  # Column already exists
+        try:
+            await db.execute("ALTER TABLE sections ADD COLUMN level INTEGER DEFAULT 2")
+            await db.commit()
+        except Exception:
+            pass  # Column already exists
+
     # --- Textbooks ---
 
     async def create_textbook(
@@ -415,8 +427,8 @@ class MetadataStore:
         section_id = str(uuid.uuid4())
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
-                "INSERT INTO sections (id, chapter_id, section_number, title, page_start, page_end) VALUES (?, ?, ?, ?, ?, ?)",
-                (section_id, section_data['chapter_id'], section_data.get('section_number'), section_data.get('title'), section_data.get('page_start'), section_data.get('page_end')),
+                "INSERT INTO sections (id, chapter_id, section_number, title, page_start, page_end, parent_section_id, level) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (section_id, section_data['chapter_id'], section_data.get('section_number'), section_data.get('title'), section_data.get('page_start'), section_data.get('page_end'), section_data.get('parent_section_id'), section_data.get('level', 2)),
             )
             await db.commit()
         return section_id
@@ -426,8 +438,19 @@ class MetadataStore:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
-                "SELECT * FROM sections WHERE chapter_id = ? ORDER BY section_number",
+                "SELECT * FROM sections WHERE chapter_id = ? AND (parent_section_id IS NULL OR parent_section_id = '') ORDER BY section_number",
                 (chapter_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    async def get_subsections_for_section(self, section_id: str) -> list[dict]:
+        """Get all sub-sections (level 3) for a parent section."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM sections WHERE parent_section_id = ? ORDER BY section_number",
+                (section_id,),
             ) as cursor:
                 rows = await cursor.fetchall()
             return [dict(row) for row in rows]

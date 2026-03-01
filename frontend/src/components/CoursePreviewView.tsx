@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PixelButton, PixelPanel } from './pixel'
 import { ChapterVerification } from './ChapterVerification'
+import { ChapterBrowser } from './ChapterBrowser'
 import { verifyChapters } from '../api/pipeline'
 import { PipelineProgress } from './PipelineProgress'
 import type { Course } from '../api/courses'
@@ -163,10 +164,10 @@ export function CoursePreviewView({
                 </div>
               </PixelPanel>
 
-              {/* Panel 3: TBD */}
+              {/* Panel 3: Chapter Browser */}
               <PixelPanel className="tbd-panel">
-                <h3 className="panel-title">More</h3>
-                <p className="panel-message">More features coming soon</p>
+                <h3 className="panel-title">Chapters</h3>
+                <ChapterBrowser textbookId={selectedTextbookId} />
               </PixelPanel>
             </>
           )}

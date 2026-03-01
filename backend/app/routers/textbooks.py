@@ -61,6 +61,30 @@ def _coerce_int(value: Optional[str], default: int = 0) -> int:
         return default
 
 
+def _build_subsections(toc_entries: list[dict], section_start: int, section_end: int) -> list[dict]:
+    """Build level-3 sub-sections within a level-2 section's page range."""
+    subs = [
+        entry
+        for entry in toc_entries
+        if entry.get("level") == 3 and section_start <= entry.get("page", 1) <= section_end
+    ]
+    subs.sort(key=lambda entry: entry.get("page", 1))
+    built: list[dict] = []
+    for idx, entry in enumerate(subs):
+        sub_start = _coerce_int(entry.get("page", 1), 1)
+        next_page = subs[idx + 1].get("page") if idx + 1 < len(subs) else None
+        sub_end = _coerce_int(next_page, section_end + 1) - 1 if next_page else section_end
+        built.append(
+            {
+                "section_number": idx + 1,
+                "title": entry.get("title", ""),
+                "page_start": sub_start,
+                "page_end": sub_end,
+            }
+        )
+    return built
+
+
 def _build_sections(toc_entries: list[dict], page_start: int, page_end: int) -> list[dict]:
     sections = [
         entry
@@ -79,6 +103,7 @@ def _build_sections(toc_entries: list[dict], page_start: int, page_end: int) -> 
                 "title": entry.get("title", ""),
                 "page_start": section_start,
                 "page_end": section_end,
+                "subsections": _build_subsections(toc_entries, section_start, section_end),
             }
         )
     return built
@@ -363,6 +388,23 @@ async def serve_image(textbook_id: str, filename: str):
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(str(image_path))
 
+
+@router.get("/{textbook_id}/chapters/{chapter_id}/sections")
+async def get_chapter_sections(textbook_id: str, chapter_id: str):
+    """Return sections (subchapters) for a given chapter."""
+    storage = get_storage()
+    await storage.initialize()
+    sections = await storage.get_sections_for_chapter(chapter_id)
+    return sections
+
+
+@router.get("/{textbook_id}/sections/{section_id}/subsections")
+async def get_section_subsections(textbook_id: str, section_id: str):
+    """Return sub-sections (level 3) for a given section."""
+    storage = get_storage()
+    await storage.initialize()
+    subsections = await storage.get_subsections_for_section(section_id)
+    return subsections
 
 # ---------------------------------------------------------------------------
 # Textbook Finder — AI recommendation endpoint

@@ -71,15 +71,28 @@ class PipelineOrchestrator:
                 )
 
                 for section in chapter.get("sections", []):
-                    await self.store.create_section(
+                    section_id = await self.store.create_section(
                         {
                             "chapter_id": chapter_id,
                             "section_number": section.get("section_number"),
                             "title": section.get("title"),
                             "page_start": section.get("page_start"),
                             "page_end": section.get("page_end"),
+                            "level": 2,
                         }
                     )
+                    for subsection in section.get("subsections", []):
+                        await self.store.create_section(
+                            {
+                                "chapter_id": chapter_id,
+                                "parent_section_id": section_id,
+                                "section_number": subsection.get("section_number"),
+                                "title": subsection.get("title"),
+                                "page_start": subsection.get("page_start"),
+                                "page_end": subsection.get("page_end"),
+                                "level": 3,
+                            }
+                        )
 
             relevance_results: list[dict] = []
             course_id = textbook.get("course_id")
