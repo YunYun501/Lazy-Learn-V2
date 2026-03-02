@@ -1,18 +1,21 @@
+use std::net::TcpListener;
 use std::process::{Child, Command};
 use std::sync::Mutex;
 use tauri::{Manager, State};
 
 struct BackendProcess(Mutex<Option<Child>>);
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! Welcome to Lazy Learn.", name)
+fn is_port_available(port: u16) -> bool {
+    TcpListener::bind(("127.0.0.1", port)).is_ok()
 }
 
 fn spawn_backend() -> Option<Child> {
-    // Try to spawn the Python backend
-    // In development: uvicorn app.main:app --port 8000
-    // In production: bundled executable (deferred to Task 28)
+    // Skip if port 8000 is already in use (another backend instance)
+    if !is_port_available(8000) {
+        println!("Port 8000 already in use — assuming backend is running externally.");
+        return None;
+    }
+
     let result = Command::new("python")
         .args(["-m", "uvicorn", "app.main:app", "--port", "8000", "--host", "127.0.0.1"])
         .current_dir("../backend")
@@ -52,7 +55,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![greet])
+        .run(tauri::generate_context!())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

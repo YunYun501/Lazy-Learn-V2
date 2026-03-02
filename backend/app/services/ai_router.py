@@ -1,4 +1,4 @@
-from app.services.ai_provider import AIProvider
+import json
 from app.services.deepseek_provider import DeepSeekProvider
 from app.services.openai_provider import OpenAIProvider
 from app.models.ai_models import ConceptExtraction, ClassifiedMatch, PracticeProblems
@@ -41,3 +41,18 @@ class AIRouter:
         Falls back to 'Vision not available' message if not configured.
         """
         return await self.openai.analyze_image(image_path, prompt)
+
+    async def get_json_response(self, prompt: "str | list[dict]") -> dict:
+        """Send a chat request with JSON mode and return parsed dict. Uses DeepSeek.
+
+        Accepts either a plain string prompt (wrapped into a user message) or
+        a pre-built list of message dicts.
+        """
+        if isinstance(prompt, str):
+            messages = [{"role": "user", "content": prompt}]
+        else:
+            messages = prompt
+        raw = await self.deepseek.chat(messages, json_mode=True)
+        if isinstance(raw, str):
+            return json.loads(raw)
+        return {}

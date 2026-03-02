@@ -1,4 +1,4 @@
-const API_BASE = 'http://127.0.0.1:8000/api'
+import { API_BASE } from './config'
 
 export interface CategorizedMatch {
   source: string
@@ -13,6 +13,8 @@ export interface CategorizedMatch {
 
 export interface SearchResults {
   query: string
+  concepts: string[]
+  equations: string[]
   matches: CategorizedMatch[]
 }
 

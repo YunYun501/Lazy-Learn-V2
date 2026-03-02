@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator
-from typing import Literal
+from typing import Literal, Optional
 
 
 class ConceptExtraction(BaseModel):
@@ -14,6 +14,8 @@ class ClassifiedMatch(BaseModel):
     classification: Literal["EXPLAINS", "USES"]
     confidence: float    # 0.0 to 1.0
     reason: str
+    textbook_id: Optional[str] = None
+    chapter_num: Optional[str] = None
 
 
 class Problem(BaseModel):

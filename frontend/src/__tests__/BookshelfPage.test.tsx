@@ -84,7 +84,7 @@ describe('BookshelfPage', () => {
     vi.mocked(deleteCourse).mockResolvedValue(undefined)
     // importTextbook and uploadUniversityMaterial are not triggered in any test
     // but mocking prevents accidental network calls
-    vi.mocked(importTextbook).mockResolvedValue({ textbook_id: 'tb-x', job_id: 'job-1', message: 'ok' })
+    vi.mocked(importTextbook).mockResolvedValue({ textbook_id: 'tb-x', job_id: 'job-1', status: 'processing', message: 'ok' })
     vi.mocked(getImportStatus).mockResolvedValue({ textbook_id: 'tb-x', status: 'complete', chapters_found: 1 })
     vi.mocked(uploadUniversityMaterial).mockResolvedValue({
       id: 'mat-x',

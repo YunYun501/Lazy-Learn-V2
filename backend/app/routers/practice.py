@@ -2,7 +2,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.core.config import settings
+from app.core.config import get_deepseek_api_key
 from app.services.deepseek_provider import DeepSeekProvider
 from app.services.practice_generator import PracticeGenerator
 
@@ -24,7 +24,7 @@ async def generate_practice(request: PracticeRequest) -> dict:
       - problems: list of {question, steps, answer} (answer always contains disclaimer)
       - warning_disclaimer: always present
     """
-    provider = DeepSeekProvider(api_key=settings.DEEPSEEK_API_KEY)
+    provider = DeepSeekProvider(api_key=await get_deepseek_api_key())
     generator = PracticeGenerator(deepseek_provider=provider)
 
     return await generator.generate_practice(

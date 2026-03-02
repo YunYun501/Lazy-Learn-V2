@@ -31,6 +31,7 @@ export function BookshelfPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<Record<string, {jobId: string, progress: number, step: string, error: boolean}>>({})
+  const [materialUploadFiles, setMaterialUploadFiles] = useState<{name: string, status: 'pending' | 'uploading' | 'done' | 'error', error?: string}[]>([])
 
   // Preview view state
   const [previewTextbooks, setPreviewTextbooks] = useState<Textbook[]>([])
@@ -91,10 +92,14 @@ export function BookshelfPage() {
       for (const [courseId, info] of activeJobs) {
         try {
           const status = await getImportStatus(info.jobId)
-          if (status.status === 'complete') {
+          const isComplete = status.status === 'complete' || 
+            (status.pipeline_status && ['toc_extracted', 'awaiting_verification', 'extracting', 'partially_extracted', 'fully_extracted'].includes(status.pipeline_status))
+          const isError = status.status === 'error' || status.pipeline_status === 'error'
+          
+          if (isComplete) {
             setUploadProgress(prev => { const n = {...prev}; delete n[courseId]; return n })
             loadCourses()
-          } else if (status.status === 'error') {
+          } else if (isError) {
             setUploadProgress(prev => ({...prev, [courseId]: {...prev[courseId], error: true}}))
           } else {
             setUploadProgress(prev => ({...prev, [courseId]: {
@@ -103,7 +108,9 @@ export function BookshelfPage() {
               step: status.step ?? prev[courseId].step,
             }}))
           }
-        } catch {}
+        } catch (err) {
+          console.warn('BookshelfPage:', err)
+        }
       }
     }, 2000)
     return () => clearInterval(interval)
@@ -175,21 +182,34 @@ export function BookshelfPage() {
   }
 
   const handleMaterialFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !selectedCourseId) return
-    try {
-      setIsUploading(true)
-      setUploadError(null)
-      await uploadUniversityMaterial(file, selectedCourseId)
+    const files = e.target.files
+    if (!files || files.length === 0 || !selectedCourseId) return
+    const fileList = Array.from(files)
+    const trackingState = fileList.map(f => ({ name: f.name, status: 'pending' as const }))
+    setMaterialUploadFiles(trackingState)
+    setIsUploading(true)
+    setUploadError(null)
+
+    let hasError = false
+    for (let i = 0; i < fileList.length; i++) {
+      setMaterialUploadFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'uploading' } : f))
+      try {
+        await uploadUniversityMaterial(fileList[i], selectedCourseId)
+        setMaterialUploadFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'done' } : f))
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Upload failed'
+        setMaterialUploadFiles(prev => prev.map((f, idx) => idx === i ? { ...f, status: 'error', error: msg } : f))
+        hasError = true
+      }
+    }
+
+    setIsUploading(false)
+    if (materialInputRef.current) materialInputRef.current.value = ''
+    if (!hasError) {
       setIsUploadDialogOpen(false)
       setUploadStep('choice')
+      setMaterialUploadFiles([])
       await loadCourses()
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Upload failed'
-      setUploadError(msg)
-    } finally {
-      setIsUploading(false)
-      if (materialInputRef.current) materialInputRef.current.value = ''
     }
   }
 
@@ -456,10 +476,11 @@ export function BookshelfPage() {
           )}
           {uploadStep === 'material' && (
             <>
-              <p className="dialog-prompt">Select a university material file:</p>
+              <p className="dialog-prompt">Select university material files:</p>
               <input
                 ref={materialInputRef}
                 type="file"
+                multiple
                 accept=".pdf,.pptx,.docx,.txt,.md,.xlsx"
                 onChange={handleMaterialFileSelected}
                 style={{ display: 'none' }}
@@ -470,10 +491,25 @@ export function BookshelfPage() {
                 onClick={() => materialInputRef.current?.click()}
                 disabled={isUploading}
               >
-                {isUploading ? 'Uploading...' : 'Choose File'}
+                {isUploading ? 'Uploading...' : 'Choose Files'}
               </PixelButton>
+              {materialUploadFiles.length > 0 && (
+                <div className="batch-upload-list">
+                  {materialUploadFiles.map((f, idx) => (
+                    <div key={idx} className={`batch-upload-item batch-upload-${f.status}`}>
+                      <span className="batch-upload-name">{f.name}</span>
+                      <span className="batch-upload-status">
+                        {f.status === 'pending' && '⏳'}
+                        {f.status === 'uploading' && '⬆️'}
+                        {f.status === 'done' && '✅'}
+                        {f.status === 'error' && '❌'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {uploadError && <p className="dialog-error">{uploadError}</p>}
-              <PixelButton variant="secondary" onClick={() => setUploadStep('choice')}>
+              <PixelButton variant="secondary" onClick={() => { setUploadStep('choice'); setMaterialUploadFiles([]) }}>
                 ← Back
               </PixelButton>
             </>

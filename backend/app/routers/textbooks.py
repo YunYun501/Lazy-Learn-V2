@@ -4,7 +4,7 @@ from typing import Optional
 
 import fitz
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from app.core.config import get_deepseek_api_key, settings
@@ -343,7 +343,7 @@ async def delete_textbook(textbook_id: str):
     return {"detail": "Textbook deleted", "textbook_id": textbook_id}
 
 @router.get("/{textbook_id}/chapters/{chapter_num}/content")
-async def get_chapter_content(textbook_id: str, chapter_num: str):
+async def get_chapter_content(textbook_id: str, chapter_num: str, request: Request):
     """Return the extracted text and image URLs for a specific chapter."""
     storage = get_storage()
     await storage.initialize()
@@ -361,7 +361,7 @@ async def get_chapter_content(textbook_id: str, chapter_num: str):
     image_urls = []
     if images_dir.exists():
         for img in sorted(images_dir.glob("*.png")):
-            image_urls.append(f"http://127.0.0.1:8000/api/textbooks/{textbook_id}/images/{img.name}")
+            image_urls.append(f"{str(request.base_url).rstrip('/')}/api/textbooks/{textbook_id}/images/{img.name}")
 
     # Get chapter metadata from DB
     chapters = await storage.list_chapters(textbook_id)
@@ -421,7 +421,7 @@ async def recommend_textbooks(body: RecommendRequest):
     if not body.descriptions:
         raise HTTPException(status_code=400, detail="At least one description is required")
     from app.services.deepseek_provider import DeepSeekProvider
-    provider = DeepSeekProvider(api_key=settings.DEEPSEEK_API_KEY)
+    provider = DeepSeekProvider(api_key=await get_deepseek_api_key())
     recommendations = await find_textbooks(
         course_descriptions=body.descriptions,
         provider=provider,
@@ -483,13 +483,15 @@ async def extract_deferred(
         raise HTTPException(status_code=404, detail="Textbook not found")
 
     valid_states = {
+        PipelineStatus.toc_extracted.value,
+        PipelineStatus.extracting.value,
         PipelineStatus.partially_extracted.value,
         PipelineStatus.fully_extracted.value,
     }
     if textbook.get("pipeline_status") not in valid_states:
         raise HTTPException(
             status_code=409,
-            detail="Textbook must be in 'partially_extracted' or 'fully_extracted' state",
+            detail="Textbook must have TOC extracted before chapters can be extracted",
         )
 
     extraction_service = ContentExtractor(store=storage)

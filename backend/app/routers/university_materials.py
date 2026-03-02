@@ -1,3 +1,4 @@
+import json
 import uuid
 from pathlib import Path
 
@@ -101,3 +102,47 @@ async def delete_material(material_id: str):
 
     await storage.delete_university_material(material_id)
     return {"message": "Deleted"}
+
+
+@router.get("/{material_id}/topics")
+async def get_material_topics(material_id: str):
+    """Return parsed topic categorization for a material."""
+    storage = get_storage()
+    await storage.initialize()
+
+    material = await storage.get_university_material(material_id)
+    if material is None:
+        raise HTTPException(status_code=404, detail="Material not found")
+
+    summary_row = await storage.get_material_summary(material_id)
+    if summary_row is None:
+        return {"material_id": material_id, "topics": [], "raw_summary": None}
+
+    try:
+        data = json.loads(summary_row["summary_json"])
+    except (json.JSONDecodeError, TypeError):
+        data = {}
+
+    return {
+        "material_id": material_id,
+        "topics": data.get("topics", []),
+        "raw_summary": data.get("raw_summary"),
+    }
+
+
+@router.post("/{material_id}/rescan")
+async def rescan_material(material_id: str, background_tasks: BackgroundTasks):
+    """Re-run AI categorization on an already-uploaded material."""
+    storage = get_storage()
+    await storage.initialize()
+
+    material = await storage.get_university_material(material_id)
+    if material is None:
+        raise HTTPException(status_code=404, detail="Material not found")
+
+    filepath = material["filepath"]
+    course_id = material["course_id"]
+
+    background_tasks.add_task(_summarize_and_match_bg, material_id, filepath, course_id)
+
+    return {"status": "rescanning", "material_id": material_id}

@@ -49,7 +49,8 @@ export function PipelineProgress({
         const progress = await getExtractionProgress(textbookId)
         setChapters(progress.chapters)
         setPipelineStatus(progress.pipeline_status)
-      } catch {
+      } catch (err) {
+        console.warn('PipelineProgress:', err)
         // silently ignore network errors — keep polling
       }
     }, 2000)

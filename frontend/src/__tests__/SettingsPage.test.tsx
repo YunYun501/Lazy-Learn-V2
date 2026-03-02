@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { SettingsPage } from '../pages/SettingsPage'
 import * as settingsApi from '../api/settings'
-import * as textbooksApi from '../api/textbooks'
+import * as coursesApi from '../api/courses'
 
 // Mock the API modules
 vi.mock('../api/settings', () => ({
@@ -13,11 +13,10 @@ vi.mock('../api/settings', () => ({
   testConnection: vi.fn(),
 }))
 
-vi.mock('../api/textbooks', () => ({
-  getTextbooks: vi.fn(),
-  importTextbook: vi.fn(),
-  getImportStatus: vi.fn(),
+vi.mock('../api/courses', () => ({
+  getCourses: vi.fn(),
 }))
+
 
 function renderSettings() {
   return render(
@@ -35,7 +34,7 @@ describe('SettingsPage', () => {
     vi.mocked(settingsApi.getSettings).mockResolvedValue({})
     vi.mocked(settingsApi.updateSetting).mockResolvedValue({ success: true, key: 'download_folder' })
     vi.mocked(settingsApi.testConnection).mockResolvedValue({ success: true, message: 'OK' })
-    vi.mocked(textbooksApi.getTextbooks).mockResolvedValue([])
+    vi.mocked(coursesApi.getCourses).mockResolvedValue([])
   })
 
   it('renders "API KEYS" section heading', async () => {
@@ -98,15 +97,14 @@ describe('SettingsPage', () => {
     expect(masked).toBeInTheDocument()
   })
 
-  it('renders courses list from textbooks API', async () => {
-    vi.mocked(textbooksApi.getTextbooks).mockResolvedValue([
+  it('renders courses list from courses API', async () => {
+    vi.mocked(coursesApi.getCourses).mockResolvedValue([
       {
-        id: 'tb_001',
-        title: 'Control Systems',
-        filepath: '/data/tb_001/original.pdf',
-        course: 'MECH0089',
-        library_type: 'course',
-        processed_at: null,
+        id: 'course-1',
+        name: 'MECH0089',
+        created_at: '2026-01-01T00:00:00',
+        textbook_count: 1,
+        material_count: 0,
       },
     ])
     renderSettings()

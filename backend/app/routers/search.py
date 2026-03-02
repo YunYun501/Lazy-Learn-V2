@@ -52,7 +52,7 @@ class QueryResponse(BaseModel):
     query: str
     concepts: list[str]
     equations: list[str]
-    categorized_matches: list[ClassifiedMatch]
+    matches: list[ClassifiedMatch]
 
 
 # ---------------------------------------------------------------------------
@@ -118,5 +118,5 @@ async def full_search_query(request: QueryRequest) -> QueryResponse:
         query=request.query,
         concepts=extraction.concepts,
         equations=extraction.equations,
-        categorized_matches=categorized,
+        matches=categorized,
     )

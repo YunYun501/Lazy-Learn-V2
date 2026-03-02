@@ -28,8 +28,11 @@ class FollowupRequest(BaseModel):
 
 async def _sse_followup(conversation_id: str, message: str) -> AsyncGenerator[str, None]:
     handler = await _get_handler()
-    async for chunk in handler.handle_followup(conversation_id, message):
-        yield f"data: {chunk}\n\n"
+    try:
+        async for chunk in handler.handle_followup(conversation_id, message):
+            yield f"data: {chunk}\n\n"
+    except Exception as exc:
+        yield f"data: [ERROR] {exc}\n\n"
     yield "data: [DONE]\n\n"
 
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { PixelButton, PixelPanel } from './pixel'
 import { ChapterVerification } from './ChapterVerification'
 import { ChapterBrowser } from './ChapterBrowser'
+import { MaterialBrowser } from './MaterialBrowser'
 import { verifyChapters } from '../api/pipeline'
 import { PipelineProgress } from './PipelineProgress'
 import type { Course } from '../api/courses'
@@ -39,6 +40,7 @@ export function CoursePreviewView({
 }: CoursePreviewViewProps) {
   const navigate = useNavigate()
   const [selectedTextbookId, setSelectedTextbookId] = useState<string | null>(null)
+  const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null)
 
   const handleBeginStudy = () => {
     if (selectedTextbookId) {
@@ -114,7 +116,7 @@ export function CoursePreviewView({
                         <div
                           key={tb.id}
                           className={`preview-textbook-item${selectedTextbookId === tb.id ? ' selected' : ''}`}
-                          onClick={() => setSelectedTextbookId(tb.id)}
+          onClick={() => { setSelectedTextbookId(tb.id); setSelectedMaterialId(null) }}
                           tabIndex={0}
                           role="button"
                           aria-pressed={selectedTextbookId === tb.id}
@@ -122,6 +124,7 @@ export function CoursePreviewView({
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault()
                               setSelectedTextbookId(tb.id)
+                              setSelectedMaterialId(null)
                             }
                           }}
                         >
@@ -151,7 +154,21 @@ export function CoursePreviewView({
                 )}
                 <div className="preview-list">
                   {materials.map(m => (
-                    <div key={m.id} className="preview-material-item">
+                    <div
+                      key={m.id}
+                      className={`preview-material-item${selectedMaterialId === m.id ? ' selected' : ''}`}
+                      onClick={() => { setSelectedMaterialId(m.id); setSelectedTextbookId(null) }}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={selectedMaterialId === m.id}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setSelectedMaterialId(m.id)
+                          setSelectedTextbookId(null)
+                        }
+                      }}
+                    >
                       <span className="material-item-title">{m.title}</span>
                       <div className="material-item-meta">
                         <span className="material-type-badge">{m.file_type.toUpperCase()}</span>
@@ -164,10 +181,16 @@ export function CoursePreviewView({
                 </div>
               </PixelPanel>
 
-              {/* Panel 3: Chapter Browser */}
+              {/* Panel 3: Chapter / Topic Browser */}
               <PixelPanel className="tbd-panel">
-                <h3 className="panel-title">Chapters</h3>
-                <ChapterBrowser textbookId={selectedTextbookId} />
+                <h3 className="panel-title">{selectedMaterialId ? 'Topics' : 'Chapters'}</h3>
+                {selectedMaterialId ? (
+                  <MaterialBrowser materialId={selectedMaterialId} />
+                ) : selectedTextbookId ? (
+                  <ChapterBrowser textbookId={selectedTextbookId} />
+                ) : (
+                  <p className="chapter-browser-empty">Select a textbook or material to browse</p>
+                )}
               </PixelPanel>
             </>
           )}

@@ -1,4 +1,4 @@
-const BASE_URL = 'http://127.0.0.1:8000'
+import { BASE_URL } from './config'
 
 export interface Textbook {
   id: string
@@ -13,11 +13,13 @@ export interface Textbook {
 export interface ImportJob {
   textbook_id: string
   job_id: string
+  status: string
   message: string
 }
 
 export interface ImportStatus {
   textbook_id: string
+  pipeline_status?: string
   status: 'processing' | 'complete' | 'error' | 'not_found'
   chapters_found: number
   error?: string

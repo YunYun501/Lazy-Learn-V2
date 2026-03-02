@@ -454,6 +454,17 @@ class MetadataStore:
             ) as cursor:
                 rows = await cursor.fetchall()
             return [dict(row) for row in rows]
+
+    async def get_all_sections_for_chapter(self, chapter_id: str) -> list[dict]:
+        """Get ALL sections (all levels) for a chapter, ordered by page_start."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM sections WHERE chapter_id = ? ORDER BY page_start, level DESC",
+                (chapter_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
     
     # --- Extracted Content (v2) ---
     
@@ -478,6 +489,16 @@ class MetadataStore:
             ) as cursor:
                 rows = await cursor.fetchall()
             return [dict(row) for row in rows]
+
+    async def delete_extracted_content_for_chapter(self, chapter_id: str) -> int:
+        """Delete all extracted content rows for a chapter. Returns deleted count."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "DELETE FROM extracted_content WHERE chapter_id = ?",
+                (chapter_id,),
+            )
+            await db.commit()
+            return cursor.rowcount
     
     # --- Material Summaries (v2) ---
     

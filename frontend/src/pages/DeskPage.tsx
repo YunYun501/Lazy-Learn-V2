@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { API_BASE } from '../api/config'
 import { useNavigate, useParams } from 'react-router-dom'
 import { PixelButton, PixelInput, PixelPanel, PixelBadge } from '../components/pixel'
 import { ContentRenderer } from '../components/ContentRenderer'
@@ -22,28 +23,42 @@ export function DeskPage() {
   const conversationIdRef = useRef<string>(crypto.randomUUID())
 
   async function handleAiSend(query: string): Promise<string> {
-    const res = await fetch('http://127.0.0.1:8000/api/conversations/followup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversation_id: conversationIdRef.current, message: query }),
-    })
-    if (!res.ok) throw new Error(`Chat failed: ${res.status}`)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 60000)
+    try {
+      const res = await fetch(API_BASE + '/conversations/followup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversation_id: conversationIdRef.current, message: query }),
+        signal: controller.signal,
+      })
+      if (!res.ok) throw new Error(`Chat failed: ${res.status}`)
 
-    // Collect SSE stream into a full string
-    const reader = res.body!.getReader()
-    const decoder = new TextDecoder()
-    let fullText = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      const chunk = decoder.decode(value, { stream: true })
-      for (const line of chunk.split('\n')) {
-        if (line.startsWith('data: ') && line.trim() !== 'data: [DONE]') {
-          fullText += line.slice(6)
+      // Collect SSE stream into a full string
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let fullText = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        for (const line of chunk.split('\n')) {
+          if (line.startsWith('data: ')) {
+            if (line.startsWith('data: [ERROR]')) {
+              const errorMsg = line.slice(13).trim()
+              throw new Error(errorMsg)
+            }
+            if (line.trim() !== 'data: [DONE]') {
+              fullText += line.slice(6)
+            }
+          }
         }
       }
+      return fullText
+    } finally {
+      clearTimeout(timeout)
+      controller.abort()
     }
-    return fullText
   }
 
   const { messages, loading, sendMessage } = useConversation(handleAiSend)

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { API_BASE } from '../api/config'
 import { ContentRenderer } from './ContentRenderer'
 import { PixelButton } from './pixel'
 import type { ChapterRef } from '../api/search'
@@ -41,6 +42,7 @@ export function ExplanationView({
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
+    const timeout = setTimeout(() => controller.abort(), 60000)
 
     setContent('')
     setError(null)
@@ -48,7 +50,7 @@ export function ExplanationView({
 
     const run = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/explain', {
+        const response = await fetch(API_BASE + '/explain', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chapters, query }),
@@ -79,6 +81,12 @@ export function ExplanationView({
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const chunk = line.slice(6)
+              if (chunk.startsWith('[ERROR]')) {
+                const errorMsg = chunk.slice(7).trim()
+                setError(errorMsg)
+                setState('error')
+                return
+              }
               if (chunk === '[DONE]') {
                 setState('complete')
                 return
@@ -93,12 +101,15 @@ export function ExplanationView({
         if ((err as Error).name === 'AbortError') return
         setError((err as Error).message)
         setState('error')
+      } finally {
+        clearTimeout(timeout)
       }
     }
 
     run()
 
     return () => {
+      clearTimeout(timeout)
       controller.abort()
     }
   }, [chapters, query])

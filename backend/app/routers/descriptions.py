@@ -1,6 +1,6 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks
 
-from app.core.config import settings
+from app.core.config import settings, get_deepseek_api_key
 from app.services.deepseek_provider import DeepSeekProvider
 from app.services.description_generator import DescriptionGenerator
 from app.services.filesystem import FilesystemManager
@@ -16,8 +16,8 @@ def get_filesystem() -> FilesystemManager:
     return fs
 
 
-def get_generator() -> DescriptionGenerator:
-    provider = DeepSeekProvider(api_key=settings.DEEPSEEK_API_KEY)
+async def get_generator() -> DescriptionGenerator:
+    provider = DeepSeekProvider(api_key=await get_deepseek_api_key())
     fs = get_filesystem()
     return DescriptionGenerator(deepseek_provider=provider, filesystem_manager=fs)
 
@@ -25,7 +25,7 @@ def get_generator() -> DescriptionGenerator:
 async def _run_generation(textbook_id: str):
     _generation_status[textbook_id] = {"status": "processing"}
     try:
-        generator = get_generator()
+        generator = await get_generator()
         descriptions = await generator.generate_all_descriptions(textbook_id)
         _generation_status[textbook_id] = {
             "status": "complete",

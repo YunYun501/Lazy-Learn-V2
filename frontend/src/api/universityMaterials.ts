@@ -1,4 +1,4 @@
-const BASE_URL = 'http://127.0.0.1:8000'
+import { BASE_URL } from './config'
 
 export interface UniversityMaterial {
   id: string
@@ -38,4 +38,30 @@ export async function deleteUniversityMaterial(id: string): Promise<void> {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.detail || `Failed to delete: ${res.status}`)
   }
+}
+
+export interface MaterialTopic {
+  title: string
+  description: string
+  source_range: string
+}
+
+export interface MaterialTopicsResponse {
+  material_id: string
+  topics: MaterialTopic[]
+  raw_summary: string | null
+}
+
+export async function getMaterialTopics(materialId: string): Promise<MaterialTopicsResponse> {
+  const res = await fetch(`${BASE_URL}/api/university-materials/${materialId}/topics`)
+  if (!res.ok) throw new Error(`Failed to fetch topics: ${res.status}`)
+  return res.json()
+}
+
+export async function rescanMaterial(materialId: string): Promise<{ status: string; material_id: string }> {
+  const res = await fetch(`${BASE_URL}/api/university-materials/${materialId}/rescan`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error(`Failed to rescan material: ${res.status}`)
+  return res.json()
 }

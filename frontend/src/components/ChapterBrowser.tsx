@@ -26,7 +26,8 @@ export function ChapterBrowser({ textbookId }: ChapterBrowserProps) {
     try {
       const data = await getTextbookStatus(textbookId)
       setChapters(data.chapters)
-    } catch {
+    } catch (err) {
+      console.warn('ChapterBrowser:', err)
       // silently ignore
     } finally {
       setLoading(false)
@@ -61,7 +62,9 @@ export function ChapterBrowser({ textbookId }: ChapterBrowserProps) {
       try {
         const sections = await getChapterSections(textbookId, chapterId)
         setSectionsCache(prev => ({ ...prev, [chapterId]: sections }))
-      } catch {
+      } catch (err) {
+        console.warn('ChapterBrowser:', err)
+        setSectionsCache(prev => ({ ...prev, [chapterId]: [] }))
         setSectionsCache(prev => ({ ...prev, [chapterId]: [] }))
       } finally {
         setSectionsLoading(prev => {
@@ -99,7 +102,8 @@ export function ChapterBrowser({ textbookId }: ChapterBrowserProps) {
       await extractDeferred(textbookId, Array.from(selectedIds))
       setSelectedIds(new Set())
       setTimeout(() => { fetchChapters() }, 2000)
-    } catch {
+    } catch (err) {
+      console.warn('ChapterBrowser:', err)
       // silently ignore
     }
   }, [textbookId, selectedIds, fetchChapters])
@@ -113,7 +117,8 @@ export function ChapterBrowser({ textbookId }: ChapterBrowserProps) {
     try {
       await extractDeferred(textbookId, unextracted)
       setTimeout(() => { fetchChapters() }, 2000)
-    } catch {
+    } catch (err) {
+      console.warn('ChapterBrowser:', err)
       // silently ignore
     }
   }, [textbookId, chapters, fetchChapters])
@@ -123,7 +128,8 @@ export function ChapterBrowser({ textbookId }: ChapterBrowserProps) {
     try {
       await extractDeferred(textbookId, [chapterId])
       setTimeout(() => { fetchChapters() }, 2000)
-    } catch {
+    } catch (err) {
+      console.warn('ChapterBrowser:', err)
       // silently ignore
     }
   }, [textbookId, fetchChapters])
@@ -144,7 +150,9 @@ export function ChapterBrowser({ textbookId }: ChapterBrowserProps) {
       try {
         const subs = await getSectionSubsections(textbookId, sectionId)
         setSubsectionsCache(prev => ({ ...prev, [sectionId]: subs }))
-      } catch {
+      } catch (err) {
+        console.warn('ChapterBrowser:', err)
+        setSubsectionsCache(prev => ({ ...prev, [sectionId]: [] }))
         setSubsectionsCache(prev => ({ ...prev, [sectionId]: [] }))
       } finally {
         setSubsectionsLoading(prev => {

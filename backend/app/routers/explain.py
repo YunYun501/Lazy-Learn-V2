@@ -44,8 +44,11 @@ async def _sse_generator(
         for ch in chapters
     ]
 
-    async for chunk in generator.generate_explanation(selected, query):
-        yield f"data: {chunk}\n\n"
+    try:
+        async for chunk in generator.generate_explanation(selected, query):
+            yield f"data: {chunk}\n\n"
+    except Exception as exc:
+        yield f"data: [ERROR] {exc}\n\n"
 
     # Signal stream end
     yield "data: [DONE]\n\n"

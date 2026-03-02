@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel
 
-from app.core.config import settings
+from app.core.config import get_deepseek_api_key
 from app.services.deepseek_provider import DeepSeekProvider
 from app.services.document_parser import DocumentParser
 from app.services.material_organizer import MaterialOrganizer
@@ -21,9 +21,9 @@ _job_status: dict = {}
 # ------------------------------------------------------------------
 
 
-def get_organizer() -> MaterialOrganizer:
+async def get_organizer() -> MaterialOrganizer:
     """Create a MaterialOrganizer with real DeepSeek and DocumentParser instances."""
-    provider = DeepSeekProvider(api_key=settings.DEEPSEEK_API_KEY)
+    provider = DeepSeekProvider(api_key=await get_deepseek_api_key())
     parser = DocumentParser()
     return MaterialOrganizer(ai_provider=provider, document_parser=parser)
 
@@ -68,7 +68,7 @@ async def _run_organize(job_id: str, source_dir: str, dest_dir: str) -> None:
         "categories": {},
     }
     try:
-        organizer = get_organizer()
+        organizer = await get_organizer()
         result = await organizer.organize_materials(source_dir, dest_dir)
         _job_status[job_id] = {
             "status": "complete",

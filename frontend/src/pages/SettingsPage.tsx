@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PixelButton, PixelPanel } from '../components/pixel'
 import { getSettings, updateSetting, testConnection, type SettingsMap } from '../api/settings'
-import { getTextbooks } from '../api/textbooks'
+import { getCourses } from '../api/courses'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,9 +54,8 @@ export function SettingsPage() {
 
   async function loadCourses() {
     try {
-      const books = await getTextbooks()
-      const unique = [...new Set(books.map(b => b.course).filter(Boolean) as string[])]
-      setCourses(unique.sort())
+      const allCourses = await getCourses()
+      setCourses(allCourses.map(c => c.name).sort())
     } catch {
       // Ignore
     }
