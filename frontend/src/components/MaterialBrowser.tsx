@@ -97,13 +97,14 @@ export function MaterialBrowser({ materialId }: MaterialBrowserProps) {
     setRelevanceStatus('checking')
     try {
       await checkMaterialRelevance(materialId)
-      // Poll every 3 seconds until completed
-      const pollInterval = setInterval(async () => {
+      const poll = async () => {
         try {
           const data = await getMaterialRelevance(materialId)
           setRelevanceStatus(data.status)
-          if (data.status === 'completed' || data.status === 'error') {
+          if (data.results && data.results.length > 0) {
             setRelevanceResults(data.results)
+          }
+          if (data.status === 'completed' || data.status === 'error') {
             setRelevanceChecking(false)
             clearInterval(pollInterval)
           }
@@ -112,7 +113,9 @@ export function MaterialBrowser({ materialId }: MaterialBrowserProps) {
           setRelevanceChecking(false)
           setRelevanceStatus('error')
         }
-      }, 3000)
+      }
+      const pollInterval = setInterval(poll, 1500)
+      setTimeout(() => poll(), 500)
       // Safety timeout — stop polling after 2 minutes
       setTimeout(() => {
         clearInterval(pollInterval)
@@ -180,7 +183,7 @@ export function MaterialBrowser({ materialId }: MaterialBrowserProps) {
       )}
 
       {/* Relevant Chapters section */}
-      {relevanceStatus === 'completed' && relevanceResults.length > 0 && (
+      {relevanceResults.length > 0 && (
         <div className="material-relevance-section">
           <div className="material-relevance-header">Relevant Chapters</div>
           <div className="material-relevance-list">

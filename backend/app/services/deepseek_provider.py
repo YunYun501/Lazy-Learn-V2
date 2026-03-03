@@ -73,6 +73,8 @@ class DeepSeekProvider(AIProvider):
         model: str = CHAT_MODEL,
         stream: bool = False,
         json_mode: bool = False,
+        temperature: float | None = None,
+        timeout: float | None = None,
     ) -> str | AsyncGenerator[str, None]:
         payload = {
             "model": model,
@@ -81,11 +83,13 @@ class DeepSeekProvider(AIProvider):
         }
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
+        if temperature is not None:
+            payload["temperature"] = temperature
 
         if stream:
             return self._stream_response(payload)
         else:
-            data = await self._call_with_retry(payload)
+            data = await self._call_with_retry(payload, timeout=timeout or 60.0)
             return data["choices"][0]["message"]["content"]
 
     async def _stream_response(self, payload: dict) -> AsyncGenerator[str, None]:

@@ -615,6 +615,34 @@ class MetadataStore:
             )
             await db.commit()
 
+    async def append_relevance_results(self, results: list[dict]) -> None:
+        if not results:
+            return
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.executemany(
+                "INSERT INTO material_relevance_results (id, material_id, course_id, textbook_id, entry_id, entry_type, entry_title, entry_level, page_start, page_end, relevance_score, matched_topics, reasoning, parent_entry_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        item["id"],
+                        item["material_id"],
+                        item["course_id"],
+                        item["textbook_id"],
+                        item["entry_id"],
+                        item["entry_type"],
+                        item["entry_title"],
+                        item["entry_level"],
+                        item.get("page_start"),
+                        item.get("page_end"),
+                        item["relevance_score"],
+                        item.get("matched_topics"),
+                        item.get("reasoning"),
+                        item.get("parent_entry_id"),
+                        item["created_at"],
+                    )
+                    for item in results
+                ],
+            )
+            await db.commit()
     async def update_material_relevance_status(self, material_id: str, status: str) -> None:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(

@@ -42,7 +42,7 @@ class AIRouter:
         """
         return await self.openai.analyze_image(image_path, prompt)
 
-    async def get_json_response(self, prompt: "str | list[dict]") -> dict:
+    async def get_json_response(self, prompt: "str | list[dict]", temperature: float | None = None, timeout: float | None = None) -> dict:
         """Send a chat request with JSON mode and return parsed dict. Uses DeepSeek.
 
         Accepts either a plain string prompt (wrapped into a user message) or
@@ -52,7 +52,7 @@ class AIRouter:
             messages = [{"role": "user", "content": prompt}]
         else:
             messages = prompt
-        raw = await self.deepseek.chat(messages, json_mode=True)
+        raw = await self.deepseek.chat(messages, json_mode=True, temperature=temperature, timeout=timeout)
         if isinstance(raw, str):
             return json.loads(raw)
         return {}
