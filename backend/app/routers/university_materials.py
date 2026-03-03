@@ -10,6 +10,7 @@ from app.services.material_summarizer import MaterialSummarizer
 from app.services.relevance_matcher import RelevanceMatcher
 from app.services.retroactive_matcher import RetroactiveMatcher
 from app.services.storage import MetadataStore
+from app.services.material_relevance import MaterialRelevanceChecker
 
 router = APIRouter(prefix="/api/university-materials", tags=["university_materials"])
 
@@ -146,3 +147,55 @@ async def rescan_material(material_id: str, background_tasks: BackgroundTasks):
     background_tasks.add_task(_summarize_and_match_bg, material_id, filepath, course_id)
 
     return {"status": "rescanning", "material_id": material_id}
+
+
+async def _check_relevance_bg(material_id: str, course_id: str) -> None:
+    """Background task: run material relevance checking against all course textbooks."""
+    store = get_storage()
+    await store.initialize()
+
+    api_key = await get_deepseek_api_key()
+    ai_router = AIRouter(deepseek_api_key=api_key, openai_api_key=settings.OPENAI_API_KEY)
+
+    checker = MaterialRelevanceChecker(store=store, ai_router=ai_router)
+    await checker.check(material_id, course_id)
+
+
+@router.post("/{material_id}/check-relevance")
+async def check_material_relevance(material_id: str, background_tasks: BackgroundTasks):
+    """Trigger relevance checking for a material against all course textbooks."""
+    storage = get_storage()
+    await storage.initialize()
+
+    material = await storage.get_university_material(material_id)
+    if material is None:
+        raise HTTPException(status_code=404, detail="Material not found")
+
+    course_id = material["course_id"]
+
+    # Set status to checking
+    await storage.update_material_relevance_status(material_id, "checking")
+
+    background_tasks.add_task(_check_relevance_bg, material_id, course_id)
+
+    return {"status": "checking", "material_id": material_id}
+
+
+@router.get("/{material_id}/relevance")
+async def get_material_relevance(material_id: str):
+    """Return stored relevance results and current status for a material."""
+    storage = get_storage()
+    await storage.initialize()
+
+    material = await storage.get_university_material(material_id)
+    if material is None:
+        raise HTTPException(status_code=404, detail="Material not found")
+
+    status = await storage.get_material_relevance_status(material_id)
+    results = await storage.get_relevance_results(material_id)
+
+    return {
+        "material_id": material_id,
+        "status": status,
+        "results": results,
+    }

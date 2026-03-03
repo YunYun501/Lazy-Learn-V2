@@ -88,6 +88,23 @@ CREATE TABLE IF NOT EXISTS material_summaries (
     summary_json TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS material_relevance_results (
+    id TEXT PRIMARY KEY,
+    material_id TEXT NOT NULL,
+    course_id TEXT NOT NULL,
+    textbook_id TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    entry_type TEXT NOT NULL,
+    entry_title TEXT NOT NULL,
+    entry_level INTEGER NOT NULL,
+    page_start INTEGER,
+    page_end INTEGER,
+    relevance_score REAL NOT NULL,
+    matched_topics TEXT,
+    reasoning TEXT,
+    parent_entry_id TEXT,
+    created_at TEXT NOT NULL
+);
 """
 
 class MetadataStore:
@@ -146,6 +163,12 @@ class MetadataStore:
             pass  # Column already exists
         try:
             await db.execute("ALTER TABLE sections ADD COLUMN level INTEGER DEFAULT 2")
+            await db.commit()
+        except Exception:
+            pass  # Column already exists
+
+        try:
+            await db.execute("ALTER TABLE university_materials ADD COLUMN relevance_status TEXT DEFAULT 'none'")
             await db.commit()
         except Exception:
             pass  # Column already exists
@@ -541,6 +564,76 @@ class MetadataStore:
             ) as cursor:
                 row = await cursor.fetchone()
             return dict(row) if row else None
+
+    async def save_relevance_results(self, material_id: str, results: list[dict]) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "DELETE FROM material_relevance_results WHERE material_id = ?",
+                (material_id,),
+            )
+            if results:
+                await db.executemany(
+                    "INSERT INTO material_relevance_results (id, material_id, course_id, textbook_id, entry_id, entry_type, entry_title, entry_level, page_start, page_end, relevance_score, matched_topics, reasoning, parent_entry_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        (
+                            item["id"],
+                            item["material_id"],
+                            item["course_id"],
+                            item["textbook_id"],
+                            item["entry_id"],
+                            item["entry_type"],
+                            item["entry_title"],
+                            item["entry_level"],
+                            item.get("page_start"),
+                            item.get("page_end"),
+                            item["relevance_score"],
+                            item.get("matched_topics"),
+                            item.get("reasoning"),
+                            item.get("parent_entry_id"),
+                            item["created_at"],
+                        )
+                        for item in results
+                    ],
+                )
+            await db.commit()
+
+    async def get_relevance_results(self, material_id: str) -> list[dict]:
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM material_relevance_results WHERE material_id = ? ORDER BY textbook_id, entry_level, page_start",
+                (material_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    async def delete_relevance_results(self, material_id: str) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "DELETE FROM material_relevance_results WHERE material_id = ?",
+                (material_id,),
+            )
+            await db.commit()
+
+    async def update_material_relevance_status(self, material_id: str, status: str) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE university_materials SET relevance_status = ? WHERE id = ?",
+                (status, material_id),
+            )
+            await db.commit()
+
+    async def get_material_relevance_status(self, material_id: str) -> str:
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT relevance_status FROM university_materials WHERE id = ?",
+                (material_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+                if not row or row["relevance_status"] is None:
+                    return "none"
+                return row["relevance_status"]
     
     # --- Status Updates (v2) ---
     

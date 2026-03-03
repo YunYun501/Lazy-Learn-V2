@@ -1,4 +1,5 @@
 import { BASE_URL } from './config'
+import type { MaterialRelevanceResponse } from '../types/pipeline'
 
 export interface UniversityMaterial {
   id: string
@@ -63,5 +64,19 @@ export async function rescanMaterial(materialId: string): Promise<{ status: stri
     method: 'POST',
   })
   if (!res.ok) throw new Error(`Failed to rescan material: ${res.status}`)
+  return res.json()
+}
+
+export async function checkMaterialRelevance(materialId: string): Promise<{ status: string; material_id: string }> {
+  const res = await fetch(`${BASE_URL}/api/university-materials/${materialId}/check-relevance`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error(`Failed to check relevance: ${res.status}`)
+  return res.json()
+}
+
+export async function getMaterialRelevance(materialId: string): Promise<MaterialRelevanceResponse> {
+  const res = await fetch(`${BASE_URL}/api/university-materials/${materialId}/relevance`)
+  if (!res.ok) throw new Error(`Failed to fetch relevance: ${res.status}`)
   return res.json()
 }

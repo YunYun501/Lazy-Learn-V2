@@ -185,7 +185,7 @@ export function CoursePreviewView({
               <PixelPanel className="tbd-panel">
                 <h3 className="panel-title">{selectedMaterialId ? 'Topics' : 'Chapters'}</h3>
                 {selectedMaterialId ? (
-                  <MaterialBrowser materialId={selectedMaterialId} />
+                  <MaterialBrowser materialId={selectedMaterialId} courseId={course?.id ?? null} />
                 ) : selectedTextbookId ? (
                   <ChapterBrowser textbookId={selectedTextbookId} />
                 ) : (

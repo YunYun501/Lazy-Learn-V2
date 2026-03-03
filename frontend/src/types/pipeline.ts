@@ -33,6 +33,30 @@ export interface RelevanceResult {
   reasoning?: string;
 }
 
+// Stored relevance result for material-to-TOC matching
+export interface MaterialRelevanceEntry {
+  id: string;
+  material_id: string;
+  course_id: string;
+  textbook_id: string;
+  entry_id: string;
+  entry_type: 'chapter' | 'section' | 'subsection';
+  entry_title: string;
+  entry_level: number; // 1, 2, 3
+  page_start: number;
+  page_end: number;
+  relevance_score: number; // 0.0-1.0
+  matched_topics: string[];
+  reasoning?: string;
+  parent_entry_id?: string;
+}
+
+export interface MaterialRelevanceResponse {
+  material_id: string;
+  status: 'none' | 'checking' | 'completed' | 'error';
+  results: MaterialRelevanceEntry[];
+}
+
 // Chapter with extraction and relevance status
 export interface ChapterWithStatus {
   id: string;
