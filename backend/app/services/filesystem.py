@@ -59,3 +59,9 @@ class FilesystemManager:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_path, dest)
         return dest
+
+    def mineru_cache_path(self, textbook_id: str) -> Path:
+        """Path for cached MinerU extraction output (JSON) for a textbook."""
+        cache_dir = self.textbook_dir(textbook_id) / "mineru_cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir / "pages.json"

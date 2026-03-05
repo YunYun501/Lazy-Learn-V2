@@ -67,6 +67,7 @@ function renderCoursePreview(
   onBeginStudy: (textbookId: string) => void = vi.fn(),
   onUpload: () => void = vi.fn(),
   onDelete: () => void = vi.fn(),
+  onDeleteTextbook: (textbookId: string) => void = vi.fn(),
 ) {
   return render(
     <MemoryRouter>
@@ -82,6 +83,7 @@ function renderCoursePreview(
               onBeginStudy={onBeginStudy}
               onUpload={onUpload}
               onDelete={onDelete}
+              onDeleteTextbook={onDeleteTextbook}
             />
           }
         />
@@ -109,7 +111,7 @@ describe('CoursePreviewView', () => {
   it('test_renders_chapter_browser_panel', async () => {
     renderCoursePreview()
     expect(await screen.findByText('Chapters')).toBeInTheDocument()
-    expect(screen.getByText('Select a textbook to browse chapters')).toBeInTheDocument()
+    expect(screen.getByText('Select a textbook or material to browse')).toBeInTheDocument()
   })
 
   it('test_back_button_calls_handler', async () => {

@@ -1,3 +1,5 @@
+import json
+import logging
 import shutil
 import uuid
 from typing import Optional
@@ -12,7 +14,7 @@ from app.models.pipeline_models import ChapterVerificationRequest, ChapterWithSt
 from app.services.ai_router import AIRouter
 from app.services.content_extractor import ContentExtractor
 from app.services.filesystem import FilesystemManager
-from app.services.pdf_parser import PDFParser
+from app.services.pdf_parser import PDFParser, detect_chapter_entries
 from app.services.pipeline_orchestrator import PipelineOrchestrator
 from app.services.relevance_matcher import RelevanceMatcher
 from app.services.storage import MetadataStore
@@ -61,12 +63,12 @@ def _coerce_int(value: Optional[str], default: int = 0) -> int:
         return default
 
 
-def _build_subsections(toc_entries: list[dict], section_start: int, section_end: int) -> list[dict]:
-    """Build level-3 sub-sections within a level-2 section's page range."""
+def _build_subsections(toc_entries: list[dict], section_start: int, section_end: int, subsection_level: int = 3) -> list[dict]:
+    """Build sub-sections within a section's page range at the given TOC level."""
     subs = [
         entry
         for entry in toc_entries
-        if entry.get("level") == 3 and section_start <= entry.get("page", 1) <= section_end
+        if entry.get("level") == subsection_level and section_start <= entry.get("page", 1) <= section_end
     ]
     subs.sort(key=lambda entry: entry.get("page", 1))
     built: list[dict] = []
@@ -85,11 +87,12 @@ def _build_subsections(toc_entries: list[dict], section_start: int, section_end:
     return built
 
 
-def _build_sections(toc_entries: list[dict], page_start: int, page_end: int) -> list[dict]:
+def _build_sections(toc_entries: list[dict], page_start: int, page_end: int, section_level: int = 2) -> list[dict]:
+    """Build sections within a chapter's page range at the given TOC level."""
     sections = [
         entry
         for entry in toc_entries
-        if entry.get("level") == 2 and page_start <= entry.get("page", 1) <= page_end
+        if entry.get("level") == section_level and page_start <= entry.get("page", 1) <= page_end
     ]
     sections.sort(key=lambda entry: entry.get("page", 1))
     built: list[dict] = []
@@ -103,15 +106,20 @@ def _build_sections(toc_entries: list[dict], page_start: int, page_end: int) -> 
                 "title": entry.get("title", ""),
                 "page_start": section_start,
                 "page_end": section_end,
-                "subsections": _build_subsections(toc_entries, section_start, section_end),
+                "subsections": _build_subsections(toc_entries, section_start, section_end, subsection_level=section_level + 1),
             }
         )
     return built
 
 
 def _build_toc_payload(toc_entries: list[dict], total_pages: int) -> dict:
-    top_level = [entry for entry in toc_entries if entry.get("level") == 1]
-    if not top_level:
+    """Build the chapter/section/subsection payload from raw TOC entries.
+
+    Uses detect_chapter_entries() to handle Part→Chapter hierarchies and
+    mixed-level TOC structures.
+    """
+    chapter_entries = detect_chapter_entries(toc_entries)
+    if not chapter_entries:
         return {
             "chapters": [
                 {
@@ -125,27 +133,37 @@ def _build_toc_payload(toc_entries: list[dict], total_pages: int) -> dict:
         }
 
     chapters: list[dict] = []
-    for idx, entry in enumerate(top_level):
+    for idx, entry in enumerate(chapter_entries):
         page_start = _coerce_int(entry.get("page", 1), 1)
-        next_page = top_level[idx + 1].get("page") if idx + 1 < len(top_level) else None
+        next_page = chapter_entries[idx + 1].get("page") if idx + 1 < len(chapter_entries) else None
         page_end = _coerce_int(next_page, total_pages + 1) - 1 if next_page else total_pages
+        ch_level = entry.get("level", 1)
         chapters.append(
             {
                 "chapter_number": str(idx + 1),
                 "title": entry.get("title", ""),
                 "page_start": page_start,
                 "page_end": page_end,
-                "sections": _build_sections(toc_entries, page_start, page_end),
+                "sections": _build_sections(toc_entries, page_start, page_end, section_level=ch_level + 1),
             }
         )
     return {"chapters": chapters}
 
 
 class TocExtractionService:
-    def __init__(self, store: MetadataStore, filesystem: FilesystemManager) -> None:
+    def __init__(
+        self,
+        store: MetadataStore,
+        filesystem: FilesystemManager,
+        ai_provider=None,
+        mineru_extractor=None,
+    ) -> None:
         self.store = store
         self.filesystem = filesystem
-        self.parser = PDFParser(storage=store, filesystem=filesystem)
+        self.ai_provider = ai_provider
+        self.mineru_extractor = mineru_extractor
+        self.parser = PDFParser(storage=store, filesystem=filesystem, ai_provider=ai_provider)
+        self._logger = logging.getLogger(__name__)
 
     async def extract_toc(self, textbook_id: str) -> dict:
         textbook = await self.store.get_textbook(textbook_id)
@@ -154,13 +172,66 @@ class TocExtractionService:
         filepath = textbook.get("filepath")
         doc = fitz.open(filepath)
         try:
+            # 1. Try PDF bookmarks
             toc_entries = self.parser.extract_toc(doc)
-            if not toc_entries:
+            if toc_entries:
+                return _build_toc_payload(toc_entries, len(doc))
+
+            # 2. No bookmarks — check if flattened/scanned
+            if self.parser.is_flattened(doc) and self._has_mineru():
+                self._logger.info("Flattened PDF detected; using MinerU OCR for TOC extraction.")
+                toc_entries = await self._mineru_toc_pipeline(doc, filepath, textbook_id)
+            else:
+                # 3. Not flattened — use embedded text AI fallback
                 toc_entries = await self.parser.ai_toc_fallback(doc)
+
             return _build_toc_payload(toc_entries, len(doc))
         finally:
             doc.close()
 
+    def _has_mineru(self) -> bool:
+        return self.mineru_extractor is not None and self.mineru_extractor.is_available()
+
+    async def _mineru_toc_pipeline(
+        self, doc: fitz.Document, filepath: str, textbook_id: str
+    ) -> list:
+        """Run MinerU on first 30 pages, then AI to detect TOC from OCR text."""
+        from pathlib import Path
+
+        pdf_bytes = Path(filepath).read_bytes()
+        end_page_id = min(29, len(doc) - 1)  # 0-indexed, first 30 pages
+
+        # Extract pages via MinerU
+        output_dir = str(self.filesystem.textbook_dir(textbook_id))
+        mineru_pages = self.mineru_extractor.extract_text_by_pages(
+            pdf_bytes, output_dir, start_page_id=0, end_page_id=end_page_id
+        )
+
+        if not mineru_pages:
+            self._logger.warning("MinerU returned no pages; falling back to Full Document.")
+            return [{"level": 1, "title": "Full Document", "page": 1}]
+
+        # Cache MinerU results for reuse in extraction phase
+        self._cache_mineru_pages(textbook_id, mineru_pages)
+
+        # Build text for AI TOC detection
+        pages_text = ""
+        for page_num in sorted(mineru_pages.keys()):
+            pages_text += f"\n--- Page {page_num} ---\n"
+            pages_text += mineru_pages[page_num]
+
+        # Run AI TOC detection on the OCR'd text
+        toc_entries = await self.parser.ai_toc_from_text(pages_text)
+        self._logger.info(f"AI detected {len(toc_entries)} TOC entries from MinerU OCR text.")
+        return toc_entries
+
+    def _cache_mineru_pages(self, textbook_id: str, pages: dict[int, str]) -> None:
+        """Cache MinerU page text as JSON for later reuse during extraction."""
+        cache_path = self.filesystem.mineru_cache_path(textbook_id)
+        # Convert int keys to strings for JSON serialization
+        serializable = {str(k): v for k, v in pages.items()}
+        cache_path.write_text(json.dumps(serializable, ensure_ascii=False), encoding="utf-8")
+        self._logger.info(f"Cached {len(pages)} MinerU pages to {cache_path}")
 
 async def process_pdf_background(textbook_id: str):
     _job_status[textbook_id] = {
@@ -173,9 +244,20 @@ async def process_pdf_background(textbook_id: str):
         storage = get_storage()
         await storage.initialize()
         filesystem = get_filesystem()
-        toc_service = TocExtractionService(storage, filesystem)
         api_key = await get_deepseek_api_key()
         ai_router = AIRouter(deepseek_api_key=api_key, openai_api_key=settings.OPENAI_API_KEY)
+        # Use DeepSeek provider for TOC AI extraction
+        ai_provider = ai_router.deepseek
+        # Create MinerU extractor (gracefully unavailable if not installed)
+        mineru_extractor = None
+        try:
+            from app.services.mineru_parser import MinerUExtractor
+            mineru_extractor = MinerUExtractor()
+        except ImportError:
+            pass
+        toc_service = TocExtractionService(
+            storage, filesystem, ai_provider=ai_provider, mineru_extractor=mineru_extractor
+        )
         relevance_service = RelevanceMatcher(store=storage, ai_router=ai_router)
         extraction_service = ContentExtractor(store=storage)
         orchestrator = PipelineOrchestrator(

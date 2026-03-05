@@ -18,7 +18,7 @@ describe('App', () => {
     render(<App />)
     // SplashScreen transitions to BookshelfPage once the mocked health check succeeds
     await waitFor(() => {
-      expect(screen.getByText('LAZY LEARN')).toBeInTheDocument()
+      expect(screen.getByText('Courses')).toBeInTheDocument()
     })
   })
 })

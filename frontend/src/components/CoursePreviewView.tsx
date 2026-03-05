@@ -19,6 +19,7 @@ export interface CoursePreviewViewProps {
   onBeginStudy: (textbookId: string) => void
   onUpload: () => void
   onDelete: () => void
+  onDeleteTextbook: (textbookId: string) => void
   isLoading?: boolean
   pipelineStatus?: PipelineStatus
   pipelineChapters?: ChapterWithStatus[]
@@ -37,6 +38,7 @@ export function CoursePreviewView({
   pipelineStatus,
   pipelineChapters,
   pipelineTextbookId,
+  onDeleteTextbook,
 }: CoursePreviewViewProps) {
   const navigate = useNavigate()
   const [selectedTextbookId, setSelectedTextbookId] = useState<string | null>(null)
@@ -134,11 +136,24 @@ export function CoursePreviewView({
                     </div>
                     <div className="panel-footer">
                       <PixelButton
+                        variant="secondary"
+                        onClick={onUpload}
+                      >
+                        Upload Textbook
+                      </PixelButton>
+                      <PixelButton
                         variant="primary"
                         disabled={!selectedTextbookId}
                         onClick={handleBeginStudy}
                       >
                         Begin Study
+                      </PixelButton>
+                      <PixelButton
+                        variant="danger"
+                        disabled={!selectedTextbookId}
+                        onClick={() => { if (selectedTextbookId) onDeleteTextbook(selectedTextbookId) }}
+                      >
+                        Delete
                       </PixelButton>
                     </div>
                   </>

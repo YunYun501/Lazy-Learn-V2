@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { PixelButton } from './pixel'
 import { getTextbookStatus, getChapterSections, getSectionSubsections, extractDeferred } from '../api/pipeline'
 import type { ChapterWithStatus } from '../types/pipeline'
+import type { PipelineStatus } from '../types/pipeline'
 import type { Section } from '../api/pipeline'
 import '../styles/bookshelf.css'
 
@@ -19,6 +20,7 @@ export function ChapterBrowser({ textbookId }: ChapterBrowserProps) {
   const [expandedSectionIds, setExpandedSectionIds] = useState<Set<string>>(new Set())
   const [subsectionsCache, setSubsectionsCache] = useState<Record<string, Section[]>>({})
   const [subsectionsLoading, setSubsectionsLoading] = useState<Set<string>>(new Set())
+  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus | null>(null)
 
   const fetchChapters = useCallback(async () => {
     if (!textbookId) return
@@ -26,6 +28,7 @@ export function ChapterBrowser({ textbookId }: ChapterBrowserProps) {
     try {
       const data = await getTextbookStatus(textbookId)
       setChapters(data.chapters)
+      setPipelineStatus(data.pipeline_status)
     } catch (err) {
       console.warn('ChapterBrowser:', err)
       // silently ignore
@@ -44,6 +47,24 @@ export function ChapterBrowser({ textbookId }: ChapterBrowserProps) {
     setSubsectionsLoading(new Set())
     fetchChapters()
   }, [textbookId, fetchChapters])
+
+  // Auto-poll when pipeline is active or chapters are extracting
+  const isActivePipeline = pipelineStatus != null && !['fully_extracted', 'partially_extracted', 'error'].includes(pipelineStatus)
+  const hasExtracting = chapters.some(ch => ch.extraction_status === 'extracting')
+
+  useEffect(() => {
+    if ((!isActivePipeline && !hasExtracting) || !textbookId) return
+    const interval = setInterval(async () => {
+      try {
+        const data = await getTextbookStatus(textbookId)
+        setChapters(data.chapters)
+        setPipelineStatus(data.pipeline_status)
+      } catch {
+        // silently ignore — keep polling
+      }
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [isActivePipeline, hasExtracting, textbookId])
 
   const toggleExpand = useCallback(async (chapterId: string) => {
     if (!textbookId) return

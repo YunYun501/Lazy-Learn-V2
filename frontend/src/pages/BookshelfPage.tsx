@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getCourses, createCourse, deleteCourse, type Course } from '../api/courses'
-import { importTextbook, getImportStatus, getTextbooks, type Textbook } from '../api/textbooks'
+import { importTextbook, getImportStatus, getTextbooks, deleteTextbook, type Textbook } from '../api/textbooks'
 import { uploadUniversityMaterial, getUniversityMaterials, type UniversityMaterial } from '../api/universityMaterials'
 import { PixelButton, PixelDialog } from '../components/pixel'
 import { CoursePreviewView } from '../components/CoursePreviewView'
@@ -27,6 +27,10 @@ export function BookshelfPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isDeleteTextbookDialogOpen, setIsDeleteTextbookDialogOpen] = useState(false)
+  const [isDeletingTextbook, setIsDeletingTextbook] = useState(false)
+  const [deleteTextbookError, setDeleteTextbookError] = useState<string | null>(null)
+  const [textbookToDeleteId, setTextbookToDeleteId] = useState<string | null>(null)
   const [uploadStep, setUploadStep] = useState<'choice' | 'textbook' | 'material'>('choice')
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -82,6 +86,25 @@ export function BookshelfPage() {
       })
       .catch(() => {})
       .finally(() => setPreviewLoading(false))
+  }, [viewState, selectedCourseId])
+
+  // Auto-refresh preview data every 5s while in preview mode
+  useEffect(() => {
+    if (viewState !== 'preview' || !selectedCourseId) return
+    const courseId = selectedCourseId
+    const interval = setInterval(async () => {
+      try {
+        const [textbooks, materials] = await Promise.all([
+          getTextbooks().then(all => all.filter(t => t.course_id === courseId)),
+          getUniversityMaterials(courseId),
+        ])
+        setPreviewTextbooks(textbooks)
+        setPreviewMaterials(materials)
+      } catch {
+        // silently ignore — keep showing stale data
+      }
+    }, 5000)
+    return () => clearInterval(interval)
   }, [viewState, selectedCourseId])
 
   // Poll active upload jobs every 2 seconds
@@ -151,6 +174,23 @@ export function BookshelfPage() {
       setDeleteError(msg)
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  const handleDeleteTextbook = async () => {
+    if (!textbookToDeleteId) return
+    try {
+      setIsDeletingTextbook(true)
+      setDeleteTextbookError(null)
+      await deleteTextbook(textbookToDeleteId)
+      setIsDeleteTextbookDialogOpen(false)
+      setPreviewTextbooks(prev => prev.filter(t => t.id !== textbookToDeleteId))
+      setTextbookToDeleteId(null)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete textbook'
+      setDeleteTextbookError(msg)
+    } finally {
+      setIsDeletingTextbook(false)
     }
   }
 
@@ -369,8 +409,9 @@ export function BookshelfPage() {
           isLoading={previewLoading}
           onBack={() => setViewState('home')}
           onBeginStudy={() => {}}
-          onUpload={() => {}}
+          onUpload={() => { setUploadStep('textbook'); setIsUploadDialogOpen(true) }}
           onDelete={() => {}}
+          onDeleteTextbook={(id) => { setTextbookToDeleteId(id); setIsDeleteTextbookDialogOpen(true) }}
         />
       )}
 
@@ -548,6 +589,44 @@ export function BookshelfPage() {
               onClick={() => {
                 setIsDeleteDialogOpen(false)
                 setDeleteError(null)
+              }}
+            >
+              Cancel
+            </PixelButton>
+          </div>
+        </div>
+      </PixelDialog>
+
+      {/* Delete Textbook Confirmation Dialog */}
+      <PixelDialog
+        isOpen={isDeleteTextbookDialogOpen}
+        onClose={() => {
+          setIsDeleteTextbookDialogOpen(false)
+          setDeleteTextbookError(null)
+        }}
+        title="Delete Textbook"
+      >
+        <div className="dialog-form">
+          <p className="dialog-prompt">
+            Delete "{previewTextbooks.find(t => t.id === textbookToDeleteId)?.title}"?
+          </p>
+          <p className="dialog-warning">
+            This will permanently remove the textbook and all associated chapter data.
+          </p>
+          {deleteTextbookError && <p className="dialog-error">{deleteTextbookError}</p>}
+          <div className="dialog-actions">
+            <PixelButton
+              variant="danger"
+              onClick={handleDeleteTextbook}
+              disabled={isDeletingTextbook}
+            >
+              {isDeletingTextbook ? '...' : 'Delete'}
+            </PixelButton>
+            <PixelButton
+              variant="secondary"
+              onClick={() => {
+                setIsDeleteTextbookDialogOpen(false)
+                setDeleteTextbookError(null)
               }}
             >
               Cancel

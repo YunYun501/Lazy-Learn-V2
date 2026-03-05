@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from pathlib import Path
 
 import fitz
@@ -14,6 +15,117 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
+_SECTION_NUMBER_RE = re.compile(r'^\d+\.\d+')
+
+_META_TITLES = {
+    'contents', 'preface', 'index', 'bibliography',
+    'list of contributors', 'foreword', 'acknowledgments',
+    'acknowledgements', 'about the authors', 'about the author',
+    'about the editor', 'about the editors', 'appendix',
+    'glossary', 'table of contents',
+}
+
+
+def _fixup_zero_pages(toc_entries: list[dict]) -> list[dict]:
+    """Repair entries with page=0 by inferring from the next valid entry."""
+    fixed = [dict(e) for e in toc_entries]
+    for i, entry in enumerate(fixed):
+        if entry.get('page', 0) > 0:
+            continue
+        # Look forward for the first entry with a valid page
+        for j in range(i + 1, len(fixed)):
+            if fixed[j].get('page', 0) > 0:
+                entry['page'] = fixed[j]['page']
+                break
+    return fixed
+
+
+def _filter_meta(entries: list[dict]) -> list[dict]:
+    """Remove meta entries (Contents, Preface, Index, etc.) from chapter list."""
+    filtered = [
+        e for e in entries
+        if e.get('title', '').strip().lower() not in _META_TITLES
+    ]
+    return filtered if filtered else entries
+
+
+def detect_chapter_entries(toc_entries: list[dict]) -> list[dict]:
+    """Detect actual chapter entries from a TOC that may have mixed levels.
+
+    Handles three structures:
+      1. Simple: all chapters at level 1 (returns level-1 entries).
+      2. Part\u2192Chapter: Parts at level 1, chapters at level 2.
+      3. Mixed: some chapters directly at level 1, others nested under
+         Part headings at level 2.
+
+    The algorithm identifies level-1 \"containers\" (entries whose page range
+    spans level-2 children). Containers are Part headings and are excluded;
+    their level-2 children plus any non-container level-1 entries form the
+    chapter list.
+
+    Page-0 entries are repaired by inferring from subsequent entries.
+    Meta entries like 'Contents' and 'Preface' are always filtered out.
+    """
+    if not toc_entries:
+        return []
+
+    # Fix broken page=0 bookmarks before any sorting/analysis
+    fixed = _fixup_zero_pages(toc_entries)
+
+    level1 = [e for e in fixed if e.get('level') == 1]
+    level2 = [e for e in fixed if e.get('level') == 2]
+
+    # Only one level present \u2192 straightforward
+    if not level2:
+        return _filter_meta(sorted(level1, key=lambda e: e.get('page', 0)))
+    if not level1:
+        return _filter_meta(sorted(level2, key=lambda e: e.get('page', 0)))
+
+    # If level-2 titles look like sub-sections (\"1.1 \u2026\", \"2.3 \u2026\"),
+    # then level 1 = chapters, level 2 = sections \u2192 use level 1.
+    section_like = sum(
+        1 for e in level2
+        if _SECTION_NUMBER_RE.match(e.get('title', '').strip())
+    )
+    if section_like > len(level2) * 0.5:
+        return _filter_meta(sorted(level1, key=lambda e: e.get('page', 0)))
+
+    # Level-2 titles look like chapters (not dotted sections).
+    # Determine which level-1 entries are containers (Parts).
+    level1_sorted = sorted(level1, key=lambda e: e.get('page', 0))
+    container_mask: list[bool] = []
+
+    for i, entry in enumerate(level1_sorted):
+        page = entry.get('page', 0)
+        next_page = (
+            level1_sorted[i + 1].get('page', float('inf'))
+            if i + 1 < len(level1_sorted)
+            else float('inf')
+        )
+        has_children = any(
+            page <= child.get('page', 0) < next_page
+            for child in level2
+        )
+        container_mask.append(has_children)
+
+    container_count = sum(container_mask)
+
+    if container_count == 0:
+        # No containers \u2013 level 1 = chapters
+        return _filter_meta(level1_sorted)
+    elif container_count == len(level1_sorted):
+        # ALL level-1 entries are containers \u2192 level 2 = chapters
+        return _filter_meta(sorted(level2, key=lambda e: e.get('page', 0)))
+    else:
+        # Mixed: non-container level-1 entries + all level-2 entries
+        chapters: list[dict] = []
+        for i, entry in enumerate(level1_sorted):
+            if not container_mask[i]:
+                chapters.append(entry)
+        chapters.extend(level2)
+        chapters.sort(key=lambda e: e.get('page', 0))
+        return _filter_meta(chapters)
 
 class ParsedChapter:
     def __init__(self, number: str, title: str, page_start: int, page_end: int, text: str):
@@ -59,27 +171,41 @@ class PDFParser:
             return []
         return [{"level": entry[0], "title": entry[1], "page": entry[2]} for entry in raw_toc]
 
-    async def ai_toc_fallback(self, doc: fitz.Document) -> list:
+    async def ai_toc_from_text(self, pages_text: str) -> list:
+        """Use AI to extract a comprehensive TOC from raw page text.
+
+        Works with text from any source (embedded PDF text or OCR output).
+        Returns list of dicts: [{"level": int, "title": str, "page": int}, ...].
+        """
         if not self.ai_provider:
             return [{"level": 1, "title": "Full Document", "page": 1}]
-
-        first_pages_text = ""
-        for i in range(min(30, len(doc))):
-            first_pages_text += f"\n--- Page {i + 1} ---\n"
-            first_pages_text += str(doc[i].get_text("text"))
 
         messages = [
             {
                 "role": "system",
                 "content": (
-                    "You are analyzing a textbook PDF. Based on the first few pages, "
-                    "identify the chapter structure. Return JSON: "
-                    '{"chapters": [{"number": "1", "title": "Chapter Title", "page": 1}]}'
+                    "You are analyzing a textbook. Based on the provided page text, "
+                    "identify the COMPLETE chapter structure including parts, chapters, "
+                    "sections, and subsections. Be thorough — capture every structural "
+                    "heading you find.\n\n"
+                    "Return JSON with this exact format:\n"
+                    '{"toc_entries": [\n'
+                    '  {"level": 1, "title": "Part I: Fundamentals", "page": 1},\n'
+                    '  {"level": 2, "title": "1 Introduction", "page": 1},\n'
+                    '  {"level": 3, "title": "1.1 Background", "page": 3},\n'
+                    '  ...\n'
+                    ']}\n\n'
+                    "Level guidelines:\n"
+                    "- level 1: Parts or top-level chapters (if no parts)\n"
+                    "- level 2: Chapters (under parts) or sections (if no parts)\n"
+                    "- level 3: Sections or subsections\n"
+                    "\nPage numbers MUST match what appears in the text. "
+                    "Do NOT invent entries — only include headings you can see in the text."
                 ),
             },
             {
                 "role": "user",
-                "content": f"Identify chapters from these first pages:\n{first_pages_text[:48000]}",
+                "content": f"Identify the complete table of contents from these pages:\n{pages_text[:48000]}",
             },
         ]
 
@@ -87,12 +213,28 @@ class PDFParser:
             response = await self.ai_provider.chat(messages, model="deepseek-chat", json_mode=True)
             if isinstance(response, str):
                 parsed = json.loads(response)
-                chapters = parsed.get("chapters", [])
-                return [{"level": 1, "title": c["title"], "page": c.get("page", 1)} for c in chapters]
+                # Support both response formats
+                entries = parsed.get("toc_entries") or parsed.get("chapters", [])
+                result = []
+                for entry in entries:
+                    result.append({
+                        "level": entry.get("level", 1),
+                        "title": entry.get("title", entry.get("number", "")),
+                        "page": entry.get("page", 1),
+                    })
+                return result if result else [{"level": 1, "title": "Full Document", "page": 1}]
         except Exception as e:
-            logger.warning(f"AI TOC fallback failed: {e}")
+            logger.warning(f"AI TOC extraction failed: {e}")
 
         return [{"level": 1, "title": "Full Document", "page": 1}]
+
+    async def ai_toc_fallback(self, doc: fitz.Document) -> list:
+        """Extract TOC from embedded PDF text using AI (fallback when no bookmarks)."""
+        first_pages_text = ""
+        for i in range(min(30, len(doc))):
+            first_pages_text += f"\n--- Page {i + 1} ---\n"
+            first_pages_text += str(doc[i].get_text("text"))
+        return await self.ai_toc_from_text(first_pages_text)
 
     def extract_page_images(self, doc: fitz.Document, page_num: int, textbook_id: str) -> list:
         saved_paths = []
@@ -134,9 +276,9 @@ class PDFParser:
         total_pages = len(doc)
         chapters = []
 
-        top_level = [e for e in toc_entries if e["level"] == 1]
+        chapter_entries = detect_chapter_entries(toc_entries)
 
-        if not top_level:
+        if not chapter_entries:
             text = ""
             for i in range(total_pages):
                 if mineru_pages and (i + 1) in mineru_pages:
@@ -146,9 +288,9 @@ class PDFParser:
             chapters.append(ParsedChapter("1", "Full Document", 1, total_pages, text))
             return chapters
 
-        for i, entry in enumerate(top_level):
+        for i, entry in enumerate(chapter_entries):
             page_start = entry["page"]
-            page_end = top_level[i + 1]["page"] - 1 if i + 1 < len(top_level) else total_pages
+            page_end = chapter_entries[i + 1]["page"] - 1 if i + 1 < len(chapter_entries) else total_pages
             chapter_num = str(i + 1)
             title = entry["title"]
 

@@ -25,7 +25,7 @@ class MinerUExtractor:
     def is_available(self) -> bool:
         return self._available
 
-    def extract_text_by_pages(self, pdf_bytes: bytes, output_dir: str, lang: str = "en") -> dict[int, str]:
+    def extract_text_by_pages(self, pdf_bytes: bytes, output_dir: str, lang: str = "en", start_page_id: int = 0, end_page_id: int | None = None) -> dict[int, str]:
         if not self._available or not self._do_parse:
             return {}
 
@@ -47,8 +47,8 @@ class MinerUExtractor:
                 f_dump_orig_pdf=False,
                 f_draw_layout_bbox=False,
                 f_draw_span_bbox=False,
-                start_page_id=0,
-                end_page_id=None,
+                start_page_id=start_page_id,
+                end_page_id=end_page_id,
             )
 
             content_list_path = (
@@ -73,7 +73,7 @@ class MinerUExtractor:
                 page_idx = entry.get("page_idx")
                 if page_idx is None:
                     continue
-                page_number = int(page_idx) + 1
+                page_number = start_page_id + int(page_idx) + 1
                 pages.setdefault(page_number, []).append(text)
 
             return {page: "\n".join(texts) for page, texts in pages.items()}

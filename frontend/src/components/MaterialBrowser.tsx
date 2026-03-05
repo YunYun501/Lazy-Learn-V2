@@ -64,6 +64,36 @@ export function MaterialBrowser({ materialId }: MaterialBrowserProps) {
     fetchRelevance()
   }, [materialId, fetchTopics, fetchRelevance])
 
+  // Auto-poll relevance when status is 'checking' (handles both initial check and re-mount)
+  useEffect(() => {
+    if (relevanceStatus !== 'checking' || !materialId) return
+    setRelevanceChecking(true)
+    const interval = setInterval(async () => {
+      try {
+        const data = await getMaterialRelevance(materialId)
+        setRelevanceStatus(data.status)
+        if (data.results && data.results.length > 0) {
+          setRelevanceResults(data.results)
+        }
+        if (data.status === 'completed' || data.status === 'error') {
+          setRelevanceChecking(false)
+        }
+      } catch {
+        setRelevanceChecking(false)
+        setRelevanceStatus('error')
+      }
+    }, 2000)
+    // Safety timeout — stop polling after 2 minutes
+    const safetyTimeout = setTimeout(() => {
+      clearInterval(interval)
+      setRelevanceChecking(false)
+    }, 120000)
+    return () => {
+      clearInterval(interval)
+      clearTimeout(safetyTimeout)
+    }
+  }, [relevanceStatus, materialId])
+
   const toggleExpand = useCallback((index: number) => {
     setExpandedIds(prev => {
       const next = new Set(prev)
@@ -97,30 +127,7 @@ export function MaterialBrowser({ materialId }: MaterialBrowserProps) {
     setRelevanceStatus('checking')
     try {
       await checkMaterialRelevance(materialId)
-      const poll = async () => {
-        try {
-          const data = await getMaterialRelevance(materialId)
-          setRelevanceStatus(data.status)
-          if (data.results && data.results.length > 0) {
-            setRelevanceResults(data.results)
-          }
-          if (data.status === 'completed' || data.status === 'error') {
-            setRelevanceChecking(false)
-            clearInterval(pollInterval)
-          }
-        } catch {
-          clearInterval(pollInterval)
-          setRelevanceChecking(false)
-          setRelevanceStatus('error')
-        }
-      }
-      const pollInterval = setInterval(poll, 1500)
-      setTimeout(() => poll(), 500)
-      // Safety timeout — stop polling after 2 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval)
-        setRelevanceChecking(false)
-      }, 120000)
+      // Polling is handled by the useEffect above
     } catch {
       console.warn('MaterialBrowser: relevance check failed')
       setRelevanceChecking(false)
