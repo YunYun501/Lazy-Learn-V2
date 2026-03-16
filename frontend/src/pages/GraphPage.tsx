@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Controls, Background } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -6,10 +7,12 @@ import { nodeTypes } from '../components/graph/nodeTypes'
 import { useKnowledgeGraph } from '../hooks/useKnowledgeGraph'
 import { PixelButton } from '../components/pixel/PixelButton'
 import { GraphErrorBoundary } from '../components/graph/GraphErrorBoundary'
+import { deleteGraph, buildGraph } from '../api/knowledgeGraph'
 import type { NodeMouseHandler } from '@xyflow/react'
 
 function GraphPageInner({ textbookId }: { textbookId: string }) {
   const navigate = useNavigate()
+  const [isRegenerating, setIsRegenerating] = useState(false)
   const {
     nodes,
     edges,
@@ -21,10 +24,22 @@ function GraphPageInner({ textbookId }: { textbookId: string }) {
     processedChapters,
     totalChapters,
     setSelectedNodeId,
+    reload,
   } = useKnowledgeGraph(textbookId)
 
   const handleNodeClick: NodeMouseHandler = (_, node) => {
     setSelectedNodeId(node.id)
+  }
+
+  const handleRegenerate = async () => {
+    setIsRegenerating(true)
+    try {
+      await deleteGraph(textbookId)
+      await buildGraph(textbookId)
+      reload()
+    } catch {
+      setIsRegenerating(false)
+    }
   }
 
   if (isLoading) {
@@ -81,7 +96,13 @@ function GraphPageInner({ textbookId }: { textbookId: string }) {
         </div>
         <div className="graph-progress">
           <div>No knowledge graph generated yet.</div>
-          <div>Go back and click &quot;Generate Relationship&quot; to build one.</div>
+          <PixelButton
+            variant="primary"
+            disabled={isRegenerating}
+            onClick={handleRegenerate}
+          >
+            {isRegenerating ? 'Generating...' : 'Generate Now'}
+          </PixelButton>
           <PixelButton variant="secondary" onClick={() => navigate('/')}>
             ← Back to Bookshelf
           </PixelButton>
@@ -97,6 +118,13 @@ function GraphPageInner({ textbookId }: { textbookId: string }) {
           ← Back
         </PixelButton>
         <span>Knowledge Graph</span>
+        <PixelButton
+          variant="primary"
+          disabled={isRegenerating || isGenerating}
+          onClick={handleRegenerate}
+        >
+          {isRegenerating ? 'Regenerating...' : 'Regenerate'}
+        </PixelButton>
       </div>
       <GraphErrorBoundary>
         <div className="graph-page__canvas">
