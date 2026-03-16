@@ -47,6 +47,10 @@ export function CoursePreviewView({
   const [graphExists, setGraphExists] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
 
+  // Get pipeline status from the selected textbook (more reliable than the prop)
+  const selectedTextbook = textbooks.find(tb => tb.id === selectedTextbookId)
+  const effectivePipelineStatus = selectedTextbook?.pipeline_status ?? pipelineStatus
+
   const handleBeginStudy = () => {
     if (selectedTextbookId) {
       onBeginStudy(selectedTextbookId)
@@ -113,7 +117,7 @@ export function CoursePreviewView({
           <h2 className="preview-course-title">{course?.name}</h2>
           <PixelButton
             variant="primary"
-            disabled={!selectedTextbookId || !['partially_extracted', 'extracting', 'fully_extracted'].includes(pipelineStatus) || isGenerating}
+            disabled={!selectedTextbookId || !effectivePipelineStatus || !['partially_extracted', 'extracting', 'fully_extracted'].includes(effectivePipelineStatus) || isGenerating}
             onClick={graphExists ? () => navigate(`/graph/${selectedTextbookId}`) : handleGenerateRelationship}
           >
             {isGenerating ? 'Generating...' : graphExists ? 'View Graph' : 'Generate Relationship'}
