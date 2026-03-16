@@ -1,13 +1,30 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import textbooks, descriptions, search, explain, practice, conversations, organize, settings, lms, courses, university_materials
+from app.routers import (
+    textbooks,
+    descriptions,
+    search,
+    explain,
+    practice,
+    conversations,
+    organize,
+    settings,
+    lms,
+    courses,
+    university_materials,
+    knowledge_graph,
+)
 
 app = FastAPI(title="Lazy Learn Backend", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "tauri://localhost"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "tauri://localhost",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,6 +41,8 @@ app.include_router(settings.router)
 app.include_router(lms.router)
 app.include_router(courses.router)
 app.include_router(university_materials.router)
+app.include_router(knowledge_graph.router)
+
 
 @app.get("/health")
 async def health():

@@ -620,7 +620,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `backend/app/services/knowledge_graph_prompts.py`, `backend/tests/test_knowledge_graph_prompts.py`
   - Pre-commit: `cd backend && python -m pytest tests/test_knowledge_graph_prompts.py -v`
 
-- [ ] 6. KnowledgeGraphBuilder Service — Core Graph Generation
+- [x] 6. KnowledgeGraphBuilder Service — Core Graph Generation
 
   **What to do**:
   - Write RED tests first: test graph building from mock ChapterDescription data, test LLM response parsing, test node/edge creation
@@ -815,7 +815,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `backend/app/services/storage.py`, `backend/tests/test_storage_graph.py`
   - Pre-commit: `cd backend && python -m pytest tests/test_storage_graph.py -v`
 
-- [ ] 8. Knowledge Graph API Router
+- [x] 8. Knowledge Graph API Router
 
   **What to do**:
   - Write RED tests first: test each endpoint with TestClient
