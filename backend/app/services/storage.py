@@ -58,8 +58,7 @@ CREATE TABLE IF NOT EXISTS university_materials (
     filepath TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
-""";
-
+"""
 MIGRATE_V2_SQL = """
 CREATE TABLE IF NOT EXISTS sections (
     id TEXT PRIMARY KEY,
@@ -107,6 +106,50 @@ CREATE TABLE IF NOT EXISTS material_relevance_results (
 );
 """
 
+MIGRATE_V3_SQL = """
+CREATE TABLE IF NOT EXISTS concept_nodes (
+    id TEXT PRIMARY KEY,
+    textbook_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    node_type TEXT NOT NULL,
+    level TEXT NOT NULL,
+    source_chapter_id TEXT,
+    source_section_id TEXT,
+    source_page INTEGER,
+    metadata_json TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS concept_edges (
+    id TEXT PRIMARY KEY,
+    textbook_id TEXT NOT NULL,
+    source_node_id TEXT NOT NULL,
+    target_node_id TEXT NOT NULL,
+    relationship_type TEXT NOT NULL,
+    confidence REAL DEFAULT 1.0,
+    reasoning TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS graph_generation_jobs (
+    id TEXT PRIMARY KEY,
+    textbook_id TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    progress_pct REAL DEFAULT 0.0,
+    total_chapters INTEGER DEFAULT 0,
+    processed_chapters INTEGER DEFAULT 0,
+    error TEXT,
+    created_at TEXT NOT NULL,
+    completed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_concept_nodes_textbook ON concept_nodes(textbook_id);
+CREATE INDEX IF NOT EXISTS idx_concept_edges_textbook ON concept_edges(textbook_id);
+CREATE INDEX IF NOT EXISTS idx_graph_jobs_textbook ON graph_generation_jobs(textbook_id);
+"""
+
+
 class MetadataStore:
     def __init__(self, db_path: Path = DEFAULT_DB_PATH):
         self.db_path = db_path
@@ -117,40 +160,47 @@ class MetadataStore:
         async with aiosqlite.connect(self.db_path) as db:
             await db.executescript(CREATE_TABLES_SQL)
             await db.commit()
-            
+
             # Call v2 migration
             await self._migrate_v2(db)
-            
+
+            # Call v3 migration
+            await self._migrate_v3(db)
+
             # Add course_id column to textbooks if missing (idempotent migration)
             try:
                 await db.execute("ALTER TABLE textbooks ADD COLUMN course_id TEXT")
                 await db.commit()
             except Exception:
                 pass  # Column already exists
-            
+
             # Auto-create Math Library reserved course
             await db.execute(
                 "INSERT OR IGNORE INTO courses (id, name, created_at) VALUES (?, ?, ?)",
-                (str(uuid.uuid4()), "Math Library", datetime.utcnow().isoformat())
+                (str(uuid.uuid4()), "Math Library", datetime.utcnow().isoformat()),
             )
             await db.commit()
-    
+
     async def _migrate_v2(self, db):
         """Apply v2 schema migrations: new tables and columns."""
         # Create new tables
         await db.executescript(MIGRATE_V2_SQL)
         await db.commit()
-        
+
         # Add extraction_status column to chapters if missing
         try:
-            await db.execute("ALTER TABLE chapters ADD COLUMN extraction_status TEXT DEFAULT 'pending'")
+            await db.execute(
+                "ALTER TABLE chapters ADD COLUMN extraction_status TEXT DEFAULT 'pending'"
+            )
             await db.commit()
         except Exception:
             pass  # Column already exists
-        
+
         # Add pipeline_status column to textbooks if missing
         try:
-            await db.execute("ALTER TABLE textbooks ADD COLUMN pipeline_status TEXT DEFAULT 'uploaded'")
+            await db.execute(
+                "ALTER TABLE textbooks ADD COLUMN pipeline_status TEXT DEFAULT 'uploaded'"
+            )
             await db.commit()
         except Exception:
             pass  # Column already exists
@@ -168,7 +218,43 @@ class MetadataStore:
             pass  # Column already exists
 
         try:
-            await db.execute("ALTER TABLE university_materials ADD COLUMN relevance_status TEXT DEFAULT 'none'")
+            await db.execute(
+                "ALTER TABLE university_materials ADD COLUMN relevance_status TEXT DEFAULT 'none'"
+            )
+            await db.commit()
+        except Exception:
+            pass  # Column already exists
+
+    async def _migrate_v3(self, db):
+        """Apply v3 schema migrations: concept graph tables."""
+        await db.executescript(MIGRATE_V3_SQL)
+        await db.commit()
+
+        # Add pipeline_status column to textbooks if missing
+        try:
+            await db.execute(
+                "ALTER TABLE textbooks ADD COLUMN pipeline_status TEXT DEFAULT 'uploaded'"
+            )
+            await db.commit()
+        except Exception:
+            pass  # Column already exists
+
+        # Add parent_section_id and level columns to sections if missing
+        try:
+            await db.execute("ALTER TABLE sections ADD COLUMN parent_section_id TEXT")
+            await db.commit()
+        except Exception:
+            pass  # Column already exists
+        try:
+            await db.execute("ALTER TABLE sections ADD COLUMN level INTEGER DEFAULT 2")
+            await db.commit()
+        except Exception:
+            pass  # Column already exists
+
+        try:
+            await db.execute(
+                "ALTER TABLE university_materials ADD COLUMN relevance_status TEXT DEFAULT 'none'"
+            )
             await db.commit()
         except Exception:
             pass  # Column already exists
@@ -211,7 +297,8 @@ class MetadataStore:
             db.row_factory = aiosqlite.Row
             if course:
                 async with db.execute(
-                    "SELECT * FROM textbooks WHERE course = ? ORDER BY created_at", (course,)
+                    "SELECT * FROM textbooks WHERE course = ? ORDER BY created_at",
+                    (course,),
                 ) as cursor:
                     rows = await cursor.fetchall()
             else:
@@ -234,9 +321,12 @@ class MetadataStore:
     async def delete_textbook(self, textbook_id: str):
         """Delete a textbook and all its chapters from the database."""
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("DELETE FROM chapters WHERE textbook_id = ?", (textbook_id,))
+            await db.execute(
+                "DELETE FROM chapters WHERE textbook_id = ?", (textbook_id,)
+            )
             await db.execute("DELETE FROM textbooks WHERE id = ?", (textbook_id,))
             await db.commit()
+
     # --- Chapters ---
 
     async def create_chapter(
@@ -253,7 +343,15 @@ class MetadataStore:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 "INSERT INTO chapters (id, textbook_id, chapter_number, title, page_start, page_end, description_path) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (chapter_id, textbook_id, chapter_number, title, page_start, page_end, description_path),
+                (
+                    chapter_id,
+                    textbook_id,
+                    chapter_number,
+                    title,
+                    page_start,
+                    page_end,
+                    description_path,
+                ),
             )
             await db.commit()
         return chapter_id
@@ -295,7 +393,9 @@ class MetadataStore:
         """Get a single course by ID."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            async with db.execute("SELECT * FROM courses WHERE id = ?", (course_id,)) as cursor:
+            async with db.execute(
+                "SELECT * FROM courses WHERE id = ?", (course_id,)
+            ) as cursor:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
 
@@ -304,11 +404,12 @@ class MetadataStore:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             await db.execute(
-                "UPDATE courses SET name = ? WHERE id = ?",
-                (name, course_id)
+                "UPDATE courses SET name = ? WHERE id = ?", (name, course_id)
             )
             await db.commit()
-            async with db.execute("SELECT * FROM courses WHERE id = ?", (course_id,)) as cursor:
+            async with db.execute(
+                "SELECT * FROM courses WHERE id = ?", (course_id,)
+            ) as cursor:
                 row = await cursor.fetchone()
                 return dict(row)
 
@@ -316,36 +417,43 @@ class MetadataStore:
         """Cascade delete: disk files → chapters → textbooks → university_materials → course."""
         import shutil
         from pathlib import Path
-        
+
         # Get textbooks to delete files on disk
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            async with db.execute("SELECT id, filepath FROM textbooks WHERE course_id = ?", (course_id,)) as cursor:
+            async with db.execute(
+                "SELECT id, filepath FROM textbooks WHERE course_id = ?", (course_id,)
+            ) as cursor:
                 textbooks = [dict(row) async for row in cursor]
-            
+
             # Delete files on disk for each textbook
             for tb in textbooks:
-                tb_dir = Path("data") / "textbooks" / tb['id']
+                tb_dir = Path("data") / "textbooks" / tb["id"]
                 if tb_dir.exists():
                     shutil.rmtree(tb_dir)
-                desc_dir = Path("data") / "descriptions" / tb['id']
+                desc_dir = Path("data") / "descriptions" / tb["id"]
                 if desc_dir.exists():
                     shutil.rmtree(desc_dir)
-            
+
             # Delete university material files
-            async with db.execute("SELECT filepath FROM university_materials WHERE course_id = ?", (course_id,)) as cursor:
+            async with db.execute(
+                "SELECT filepath FROM university_materials WHERE course_id = ?",
+                (course_id,),
+            ) as cursor:
                 materials = [dict(row) async for row in cursor]
             for mat in materials:
-                mat_path = Path(mat['filepath'])
+                mat_path = Path(mat["filepath"])
                 if mat_path.exists():
                     mat_path.unlink()
-            
+
             # Delete DB records in dependency order
-            textbook_ids = [tb['id'] for tb in textbooks]
+            textbook_ids = [tb["id"] for tb in textbooks]
             for tb_id in textbook_ids:
                 await db.execute("DELETE FROM chapters WHERE textbook_id = ?", (tb_id,))
             await db.execute("DELETE FROM textbooks WHERE course_id = ?", (course_id,))
-            await db.execute("DELETE FROM university_materials WHERE course_id = ?", (course_id,))
+            await db.execute(
+                "DELETE FROM university_materials WHERE course_id = ?", (course_id,)
+            )
             await db.execute("DELETE FROM courses WHERE id = ?", (course_id,))
             await db.commit()
 
@@ -354,7 +462,7 @@ class MetadataStore:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 "UPDATE textbooks SET course_id = ? WHERE id = ?",
-                (course_id, textbook_id)
+                (course_id, textbook_id),
             )
             await db.commit()
 
@@ -362,39 +470,57 @@ class MetadataStore:
         """Get all textbooks belonging to a course."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            async with db.execute("SELECT * FROM textbooks WHERE course_id = ?", (course_id,)) as cursor:
+            async with db.execute(
+                "SELECT * FROM textbooks WHERE course_id = ?", (course_id,)
+            ) as cursor:
                 return [dict(row) async for row in cursor]
 
-    async def create_university_material(self, course_id: str, title: str, file_type: str, filepath: str) -> dict:
+    async def create_university_material(
+        self, course_id: str, title: str, file_type: str, filepath: str
+    ) -> dict:
         """Store a university material record."""
         material_id = str(uuid.uuid4())
         created_at = datetime.utcnow().isoformat()
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 "INSERT INTO university_materials (id, course_id, title, file_type, filepath, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (material_id, course_id, title, file_type, filepath, created_at)
+                (material_id, course_id, title, file_type, filepath, created_at),
             )
             await db.commit()
-        return {"id": material_id, "course_id": course_id, "title": title, "file_type": file_type, "filepath": filepath, "created_at": created_at}
+        return {
+            "id": material_id,
+            "course_id": course_id,
+            "title": title,
+            "file_type": file_type,
+            "filepath": filepath,
+            "created_at": created_at,
+        }
 
     async def get_university_material(self, material_id: str) -> Optional[dict]:
         """Get a single university material by ID."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            async with db.execute("SELECT * FROM university_materials WHERE id = ?", (material_id,)) as cursor:
+            async with db.execute(
+                "SELECT * FROM university_materials WHERE id = ?", (material_id,)
+            ) as cursor:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
+
     async def list_university_materials(self, course_id: str) -> list[dict]:
         """List all university materials for a course."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            async with db.execute("SELECT * FROM university_materials WHERE course_id = ?", (course_id,)) as cursor:
+            async with db.execute(
+                "SELECT * FROM university_materials WHERE course_id = ?", (course_id,)
+            ) as cursor:
                 return [dict(row) async for row in cursor]
 
     async def delete_university_material(self, material_id: str) -> None:
         """Delete a university material record (caller handles file deletion)."""
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("DELETE FROM university_materials WHERE id = ?", (material_id,))
+            await db.execute(
+                "DELETE FROM university_materials WHERE id = ?", (material_id,)
+            )
             await db.commit()
 
     # --- Conversations ---
@@ -444,18 +570,27 @@ class MetadataStore:
             return [dict(row) for row in rows]
 
     # --- Sections (v2) ---
-    
+
     async def create_section(self, section_data: dict) -> str:
         """Create a section record. Returns the section ID."""
         section_id = str(uuid.uuid4())
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 "INSERT INTO sections (id, chapter_id, section_number, title, page_start, page_end, parent_section_id, level) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (section_id, section_data['chapter_id'], section_data.get('section_number'), section_data.get('title'), section_data.get('page_start'), section_data.get('page_end'), section_data.get('parent_section_id'), section_data.get('level', 2)),
+                (
+                    section_id,
+                    section_data["chapter_id"],
+                    section_data.get("section_number"),
+                    section_data.get("title"),
+                    section_data.get("page_start"),
+                    section_data.get("page_end"),
+                    section_data.get("parent_section_id"),
+                    section_data.get("level", 2),
+                ),
             )
             await db.commit()
         return section_id
-    
+
     async def get_sections_for_chapter(self, chapter_id: str) -> list[dict]:
         """Get all sections for a chapter."""
         async with aiosqlite.connect(self.db_path) as db:
@@ -488,20 +623,29 @@ class MetadataStore:
             ) as cursor:
                 rows = await cursor.fetchall()
             return [dict(row) for row in rows]
-    
+
     # --- Extracted Content (v2) ---
-    
+
     async def create_extracted_content(self, content_data: dict) -> str:
         """Create an extracted content record. Returns the content ID."""
         content_id = str(uuid.uuid4())
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 "INSERT INTO extracted_content (id, chapter_id, content_type, title, content, file_path, page_number, order_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (content_id, content_data['chapter_id'], content_data['content_type'], content_data.get('title'), content_data.get('content'), content_data.get('file_path'), content_data.get('page_number'), content_data.get('order_index')),
+                (
+                    content_id,
+                    content_data["chapter_id"],
+                    content_data["content_type"],
+                    content_data.get("title"),
+                    content_data.get("content"),
+                    content_data.get("file_path"),
+                    content_data.get("page_number"),
+                    content_data.get("order_index"),
+                ),
             )
             await db.commit()
         return content_id
-    
+
     async def get_extracted_content_for_chapter(self, chapter_id: str) -> list[dict]:
         """Get all extracted content for a chapter."""
         async with aiosqlite.connect(self.db_path) as db:
@@ -522,12 +666,12 @@ class MetadataStore:
             )
             await db.commit()
             return cursor.rowcount
-    
+
     # --- Material Summaries (v2) ---
-    
+
     async def create_material_summary(self, summary_data: dict) -> str:
         """Create or replace a material summary record. Returns the summary ID."""
-        material_id = summary_data['material_id']
+        material_id = summary_data["material_id"]
         async with aiosqlite.connect(self.db_path) as db:
             # Check if summary already exists
             db.row_factory = aiosqlite.Row
@@ -536,24 +680,35 @@ class MetadataStore:
                 (material_id,),
             ) as cursor:
                 existing = await cursor.fetchone()
-            
+
             if existing:
                 # Update existing summary
-                summary_id = existing['id']
+                summary_id = existing["id"]
                 await db.execute(
                     "UPDATE material_summaries SET course_id = ?, summary_json = ?, created_at = ? WHERE material_id = ?",
-                    (summary_data['course_id'], summary_data.get('summary_json'), datetime.utcnow().isoformat(), material_id),
+                    (
+                        summary_data["course_id"],
+                        summary_data.get("summary_json"),
+                        datetime.utcnow().isoformat(),
+                        material_id,
+                    ),
                 )
             else:
                 # Create new summary
                 summary_id = str(uuid.uuid4())
                 await db.execute(
                     "INSERT INTO material_summaries (id, material_id, course_id, summary_json, created_at) VALUES (?, ?, ?, ?, ?)",
-                    (summary_id, material_id, summary_data['course_id'], summary_data.get('summary_json'), datetime.utcnow().isoformat()),
+                    (
+                        summary_id,
+                        material_id,
+                        summary_data["course_id"],
+                        summary_data.get("summary_json"),
+                        datetime.utcnow().isoformat(),
+                    ),
                 )
             await db.commit()
         return summary_id
-    
+
     async def get_material_summary(self, material_id: str) -> Optional[dict]:
         """Get a material summary by material_id."""
         async with aiosqlite.connect(self.db_path) as db:
@@ -565,7 +720,9 @@ class MetadataStore:
                 row = await cursor.fetchone()
             return dict(row) if row else None
 
-    async def save_relevance_results(self, material_id: str, results: list[dict]) -> None:
+    async def save_relevance_results(
+        self, material_id: str, results: list[dict]
+    ) -> None:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 "DELETE FROM material_relevance_results WHERE material_id = ?",
@@ -643,7 +800,10 @@ class MetadataStore:
                 ],
             )
             await db.commit()
-    async def update_material_relevance_status(self, material_id: str, status: str) -> None:
+
+    async def update_material_relevance_status(
+        self, material_id: str, status: str
+    ) -> None:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 "UPDATE university_materials SET relevance_status = ? WHERE id = ?",
@@ -662,10 +822,12 @@ class MetadataStore:
                 if not row or row["relevance_status"] is None:
                     return "none"
                 return row["relevance_status"]
-    
+
     # --- Status Updates (v2) ---
-    
-    async def update_chapter_extraction_status(self, chapter_id: str, status: str) -> None:
+
+    async def update_chapter_extraction_status(
+        self, chapter_id: str, status: str
+    ) -> None:
         """Update extraction_status for a chapter."""
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
@@ -673,8 +835,10 @@ class MetadataStore:
                 (status, chapter_id),
             )
             await db.commit()
-    
-    async def update_textbook_pipeline_status(self, textbook_id: str, status: str) -> None:
+
+    async def update_textbook_pipeline_status(
+        self, textbook_id: str, status: str
+    ) -> None:
         """Update pipeline_status for a textbook."""
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
@@ -682,8 +846,10 @@ class MetadataStore:
                 (status, textbook_id),
             )
             await db.commit()
-    
-    async def get_chapters_by_extraction_status(self, textbook_id: str, status: str) -> list[dict]:
+
+    async def get_chapters_by_extraction_status(
+        self, textbook_id: str, status: str
+    ) -> list[dict]:
         """Get all chapters for a textbook with a specific extraction_status."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row

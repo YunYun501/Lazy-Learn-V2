@@ -224,7 +224,7 @@ Max Concurrent: 5 (Waves 1 & 2)
 
 ## TODOs
 
-- [ ] 1. SQLite V3 Migration — concept_nodes + concept_edges tables
+- [x] 1. SQLite V3 Migration — concept_nodes + concept_edges tables
 
   **What to do**:
   - Write RED tests first: test that `concept_nodes` and `concept_edges` tables exist after migration, test CRUD operations (insert/select/delete) on both tables
@@ -311,7 +311,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `backend/app/services/storage.py`, `backend/tests/test_storage_v3.py`
   - Pre-commit: `cd backend && python -m pytest tests/test_storage_v3.py -v`
 
-- [ ] 2. Pydantic Models for Knowledge Graph
+- [x] 2. Pydantic Models for Knowledge Graph
 
   **What to do**:
   - Write RED tests first: test model validation (required fields, enum constraints, JSON serialization)
@@ -388,7 +388,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `backend/app/models/knowledge_graph_models.py`, `backend/tests/test_knowledge_graph_models.py`
   - Pre-commit: `cd backend && python -m pytest tests/test_knowledge_graph_models.py -v`
 
-- [ ] 3. TypeScript Types for Graph Data
+- [x] 3. TypeScript Types for Graph Data
 
   **What to do**:
   - Write RED tests first (vitest): test type guards and helper functions
@@ -462,7 +462,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/src/types/knowledgeGraph.ts`, `frontend/src/types/knowledgeGraph.test.ts`
   - Pre-commit: `cd frontend && npx tsc --noEmit`
 
-- [ ] 4. Install React Flow + Dagre Frontend Dependencies
+- [x] 4. Install React Flow + Dagre Frontend Dependencies
 
   **What to do**:
   - Run `cd frontend && bun add @xyflow/react @dagrejs/dagre`
@@ -541,7 +541,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/package.json`, `frontend/bun.lockb`, `frontend/src/styles/graph.css`
   - Pre-commit: `cd frontend && npx tsc --noEmit`
 
-- [ ] 5. Graph Builder Prompt Templates
+- [x] 5. Graph Builder Prompt Templates
 
   **What to do**:
   - Write RED tests first: test prompt rendering with sample chapter description data

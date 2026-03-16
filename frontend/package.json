@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^2.0.4",
     "@types/react-router-dom": "^5.3.3",
+    "@xyflow/react": "^12.10.1",
     "katex": "^0.16.33",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

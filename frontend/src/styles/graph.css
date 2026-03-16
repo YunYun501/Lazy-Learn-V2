@@ -1,0 +1,279 @@
+/* graph.css — Knowledge Graph styles matching pixel-art theme */
+
+/* Import React Flow base styles */
+@import '@xyflow/react/dist/style.css';
+
+/* === Base React Flow overrides === */
+.react-flow {
+  background-color: var(--color-bg-primary, #1a1a2e);
+}
+
+.react-flow__background {
+  background-color: var(--color-bg-primary, #1a1a2e);
+}
+
+/* === Custom node base styles === */
+.graph-node {
+  border: 3px solid var(--color-border, #2a4a7a);
+  background: var(--color-bg-panel, #0f3460);
+  font-family: var(--font-pixel, 'Press Start 2P', monospace);
+  font-size: var(--font-size-pixel-xs, 8px);
+  color: var(--color-text-primary, #e8e8e8);
+  padding: 8px;
+  border-radius: 0;  /* pixel-art: no rounding */
+  box-shadow: var(--shadow-pixel, 4px 4px 0px rgba(0, 0, 0, 0.5));
+  cursor: pointer;
+  transition: none;
+}
+
+.graph-node:hover {
+  border-color: var(--color-accent-primary, #e94560);
+  box-shadow: 5px 5px 0px rgba(233, 69, 96, 0.4);
+}
+
+.graph-node.selected {
+  border-color: var(--color-accent-primary, #e94560);
+  box-shadow: 6px 6px 0px rgba(233, 69, 96, 0.5);
+}
+
+/* === Node type color accents === */
+.graph-node--chapter {
+  border-color: var(--color-accent-secondary, #f5a623);
+  background: var(--color-bg-panel, #0f3460);
+}
+
+.graph-node--theorem {
+  border-color: var(--color-accent-primary, #e94560);
+  background: var(--color-bg-panel, #0f3460);
+}
+
+.graph-node--definition {
+  border-color: var(--color-accent-secondary, #f5a623);
+  background: var(--color-bg-panel, #0f3460);
+}
+
+.graph-node--equation {
+  border-color: var(--color-accent-blue, #2196f3);
+  background: var(--color-bg-panel, #0f3460);
+}
+
+.graph-node--lemma {
+  border-color: var(--color-accent-primary, #e94560);
+  background: var(--color-bg-panel, #0f3460);
+  opacity: 0.9;
+}
+
+.graph-node--concept {
+  border-color: var(--color-text-secondary, #a0a0b0);
+  background: var(--color-bg-panel, #0f3460);
+}
+
+.graph-node--example {
+  border-color: var(--color-accent-green, #4caf50);
+  background: var(--color-bg-panel, #0f3460);
+}
+
+/* === React Flow edges === */
+.react-flow__edge-path {
+  stroke: var(--color-border-bright, #4a7aaa);
+  stroke-width: 2px;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--color-accent-primary, #e94560);
+  stroke-width: 3px;
+}
+
+/* === React Flow controls styling === */
+.react-flow__controls {
+  background: var(--color-bg-panel, #0f3460);
+  border: 3px solid var(--color-border, #2a4a7a);
+  box-shadow: var(--shadow-pixel, 4px 4px 0px rgba(0, 0, 0, 0.5));
+  border-radius: 0;
+}
+
+.react-flow__controls-button {
+  background: var(--color-bg-panel, #0f3460);
+  border-bottom: 1px solid var(--color-border, #2a4a7a);
+  color: var(--color-text-primary, #e8e8e8);
+  font-family: var(--font-pixel, 'Press Start 2P', monospace);
+  font-size: var(--font-size-pixel-xs, 8px);
+  cursor: pointer;
+  transition: none;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--color-accent-primary, #e94560);
+  color: var(--color-text-on-accent, #ffffff);
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+/* === React Flow minimap === */
+.react-flow__minimap {
+  background: var(--color-bg-secondary, #16213e);
+  border: 3px solid var(--color-border, #2a4a7a);
+  border-radius: 0;
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(233, 69, 96, 0.1);
+  stroke: var(--color-accent-primary, #e94560);
+  stroke-width: 2px;
+}
+
+/* === Graph page layout === */
+.graph-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg-primary, #1a1a2e);
+}
+
+.graph-page__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4, 16px);
+  padding: var(--space-4, 16px);
+  border-bottom: 3px solid var(--color-border, #2a4a7a);
+  background: var(--color-bg-panel, #0f3460);
+  font-family: var(--font-pixel, 'Press Start 2P', monospace);
+  font-size: var(--font-size-pixel-sm, 10px);
+  color: var(--color-text-primary, #e8e8e8);
+}
+
+.graph-page__title {
+  flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.graph-page__canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* === Detail panel === */
+.concept-detail-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 320px;
+  background: var(--color-bg-panel, #0f3460);
+  border-left: 3px solid var(--color-border, #2a4a7a);
+  overflow-y: auto;
+  padding: var(--space-4, 16px);
+  z-index: 10;
+  box-shadow: -4px 0 0px rgba(0, 0, 0, 0.5);
+}
+
+.concept-detail-panel__header {
+  font-family: var(--font-pixel, 'Press Start 2P', monospace);
+  font-size: var(--font-size-pixel-sm, 10px);
+  color: var(--color-accent-secondary, #f5a623);
+  margin-bottom: var(--space-3, 12px);
+  padding-bottom: var(--space-2, 8px);
+  border-bottom: 2px solid var(--color-border, #2a4a7a);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.concept-detail-panel__content {
+  font-family: var(--font-content, 'Inter', sans-serif);
+  font-size: var(--font-size-content-sm, 14px);
+  color: var(--color-text-primary, #e8e8e8);
+  line-height: 1.6;
+}
+
+/* === Progress indicator === */
+.graph-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--space-4, 16px);
+  font-family: var(--font-pixel, 'Press Start 2P', monospace);
+  font-size: var(--font-size-pixel-xs, 8px);
+  color: var(--color-text-primary, #e8e8e8);
+}
+
+.graph-progress__text {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.graph-progress__bar {
+  width: 300px;
+  height: 12px;
+  background: var(--color-bg-secondary, #16213e);
+  border: 2px solid var(--color-border, #2a4a7a);
+  box-shadow: var(--shadow-pixel, 4px 4px 0px rgba(0, 0, 0, 0.5));
+}
+
+.graph-progress__fill {
+  height: 100%;
+  background: var(--color-accent-primary, #e94560);
+  transition: width 0.3s ease;
+}
+
+/* === Legend === */
+.graph-legend {
+  position: absolute;
+  bottom: var(--space-4, 16px);
+  left: var(--space-4, 16px);
+  background: var(--color-bg-panel, #0f3460);
+  border: 3px solid var(--color-border, #2a4a7a);
+  padding: var(--space-3, 12px);
+  font-family: var(--font-pixel, 'Press Start 2P', monospace);
+  font-size: var(--font-size-pixel-xs, 8px);
+  z-index: 10;
+  box-shadow: var(--shadow-pixel, 4px 4px 0px rgba(0, 0, 0, 0.5));
+  max-width: 280px;
+}
+
+.graph-legend__title {
+  color: var(--color-accent-secondary, #f5a623);
+  margin-bottom: var(--space-2, 8px);
+  padding-bottom: var(--space-2, 8px);
+  border-bottom: 2px solid var(--color-border, #2a4a7a);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.graph-legend__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  margin-bottom: var(--space-2, 8px);
+  color: var(--color-text-secondary, #a0a0b0);
+  font-size: var(--font-size-pixel-xs, 8px);
+}
+
+.graph-legend__color {
+  width: 12px;
+  height: 12px;
+  border: 1px solid currentColor;
+  flex-shrink: 0;
+}
+
+/* === Responsive adjustments === */
+@media (max-width: 768px) {
+  .concept-detail-panel {
+    width: 100%;
+    max-height: 40vh;
+    border-left: none;
+    border-top: 3px solid var(--color-border, #2a4a7a);
+    box-shadow: 0 -4px 0px rgba(0, 0, 0, 0.5);
+  }
+
+  .graph-legend {
+    bottom: var(--space-2, 8px);
+    left: var(--space-2, 8px);
+    font-size: var(--font-size-pixel-xs, 8px);
+  }
+}
