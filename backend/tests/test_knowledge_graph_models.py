@@ -35,7 +35,7 @@ class TestRelationshipTypeEnum:
     """Test RelationshipType enum values."""
 
     def test_relationship_type_enum_values(self):
-        """Verify all 9 RelationshipType values exist."""
+        """Verify all 11 RelationshipType values exist."""
         assert RelationshipType.derives_from.value == "derives_from"
         assert RelationshipType.proves.value == "proves"
         assert RelationshipType.prerequisite_of.value == "prerequisite_of"
@@ -45,7 +45,9 @@ class TestRelationshipTypeEnum:
         assert RelationshipType.contradicts.value == "contradicts"
         assert RelationshipType.defines.value == "defines"
         assert RelationshipType.equivalent_form.value == "equivalent_form"
-        assert len(RelationshipType) == 9
+        assert RelationshipType.shared_variables.value == "shared_variables"
+        assert RelationshipType.contains.value == "contains"
+        assert len(RelationshipType) == 11
 
 
 class TestGraphJobStatusEnum:
@@ -64,11 +66,12 @@ class TestNodeLevelEnum:
     """Test NodeLevel enum values."""
 
     def test_node_level_enum_values(self):
-        """Verify all 3 NodeLevel values exist."""
+        """Verify all 4 NodeLevel values exist."""
         assert NodeLevel.chapter.value == "chapter"
         assert NodeLevel.section.value == "section"
+        assert NodeLevel.subsection.value == "subsection"
         assert NodeLevel.equation.value == "equation"
-        assert len(NodeLevel) == 3
+        assert len(NodeLevel) == 4
 
 
 class TestConceptNodeModel:

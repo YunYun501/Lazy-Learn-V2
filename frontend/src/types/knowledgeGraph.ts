@@ -1,6 +1,6 @@
 // Union types (matching backend enums)
 export type NodeType = 'theorem' | 'definition' | 'equation' | 'lemma' | 'concept' | 'example'
-export type NodeLevel = 'chapter' | 'section' | 'equation'
+export type NodeLevel = 'chapter' | 'section' | 'subsection' | 'equation'
 export type RelationshipType =
   | 'derives_from'
   | 'proves'
@@ -11,6 +11,8 @@ export type RelationshipType =
   | 'contradicts'
   | 'defines'
   | 'equivalent_form'
+  | 'shared_variables'
+  | 'contains'
 export type GraphJobStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
 // Core data interfaces (camelCase — maps from backend snake_case)
@@ -90,6 +92,17 @@ export function isValidNodeType(value: string): value is NodeType {
   return NODE_TYPES.includes(value as NodeType)
 }
 
+const NODE_LEVELS: NodeLevel[] = [
+  'chapter',
+  'section',
+  'subsection',
+  'equation',
+]
+
+export function isValidNodeLevel(value: string): value is NodeLevel {
+  return NODE_LEVELS.includes(value as NodeLevel)
+}
+
 const RELATIONSHIP_TYPES: RelationshipType[] = [
   'derives_from',
   'proves',
@@ -100,6 +113,8 @@ const RELATIONSHIP_TYPES: RelationshipType[] = [
   'contradicts',
   'defines',
   'equivalent_form',
+  'shared_variables',
+  'contains',
 ]
 
 export function isValidRelationshipType(value: string): value is RelationshipType {

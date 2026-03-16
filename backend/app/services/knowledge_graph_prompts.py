@@ -76,6 +76,50 @@ IMPORTANT: Return ONLY valid JSON. The root must be an object with a "relationsh
 Only use the exact relationship_type values listed above.
 """
 
+SECTION_CONCEPT_PROMPT = """
+You are analyzing a specific section of a STEM textbook to extract detailed concepts.
+
+Section: {section_title}
+Section Path: {section_path}
+Parent Topic: {parent_concept}
+
+Section Content:
+{section_text}
+
+Equations in this section:
+{equations_text}
+
+Extract detailed concepts from this section. For each concept:
+- Classify its type: theorem, definition, equation, lemma, concept, or example
+- Write a precise description (1-2 sentences)
+- Identify any aliases or alternative names
+- List prerequisite concepts (names of concepts needed to understand this one)
+
+Return a JSON object with this exact structure:
+{{
+  "concepts": [
+    {{
+      "title": "concept name",
+      "node_type": "theorem|definition|equation|lemma|concept|example",
+      "description": "precise description",
+      "aliases": ["alt name 1"],
+      "prerequisites": ["prerequisite concept name"]
+    }}
+  ],
+  "section_relationships": [
+    {{
+      "source": "concept title",
+      "target": "concept title",
+      "relationship_type": "derives_from|proves|prerequisite_of|uses|generalizes|specializes|contradicts|defines|equivalent_form",
+      "reasoning": "brief explanation"
+    }}
+  ]
+}}
+
+IMPORTANT: Return ONLY valid JSON. Extract concepts specific to THIS section, not general chapter topics.
+Focus on mathematical definitions, theorems, methods, and formulas present in the content.
+"""
+
 
 def _strip_code_blocks(text: str) -> str:
     stripped = text.strip()
@@ -108,3 +152,24 @@ def parse_relationship_response(raw: str) -> list[dict]:
         return []
     except (json.JSONDecodeError, ValueError):
         return []
+
+
+def parse_section_concept_response(raw) -> dict:
+    """Parse LLM section concept response. Returns {'concepts': [], 'section_relationships': []} on failure."""
+    try:
+        if isinstance(raw, dict):
+            return {
+                "concepts": raw.get("concepts", []),
+                "section_relationships": raw.get("section_relationships", []),
+            }
+        if isinstance(raw, str):
+            stripped = _strip_code_blocks(raw)
+            parsed = json.loads(stripped)
+            if isinstance(parsed, dict):
+                return {
+                    "concepts": parsed.get("concepts", []),
+                    "section_relationships": parsed.get("section_relationships", []),
+                }
+        return {"concepts": [], "section_relationships": []}
+    except (json.JSONDecodeError, ValueError):
+        return {"concepts": [], "section_relationships": []}

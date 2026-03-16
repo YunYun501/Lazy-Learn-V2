@@ -2,8 +2,10 @@ import json
 from app.services.knowledge_graph_prompts import (
     CONCEPT_EXTRACTION_PROMPT,
     RELATIONSHIP_EXTRACTION_PROMPT,
+    SECTION_CONCEPT_PROMPT,
     parse_concept_extraction_response,
     parse_relationship_response,
+    parse_section_concept_response,
     _strip_code_blocks,
 )
 
@@ -140,3 +142,107 @@ class TestStripCodeBlocks:
         text = '{"key": "value"}'
         result = _strip_code_blocks(text)
         assert result == '{"key": "value"}'
+
+
+class TestSectionConceptPrompt:
+    def test_section_prompt_renders(self):
+        rendered = SECTION_CONCEPT_PROMPT.format(
+            section_title="Critical Speeds",
+            section_path="Chapter 5 / Section 3",
+            parent_concept="Rotating Machinery",
+            section_text="Critical speeds are the natural frequencies at which a rotating shaft resonates.",
+            equations_text="ωn = √(k/m), where k is stiffness and m is mass",
+        )
+        assert "Critical Speeds" in rendered
+        assert "Chapter 5 / Section 3" in rendered
+        assert "Rotating Machinery" in rendered
+        assert "node_type" in rendered
+        assert "section_relationships" in rendered
+        assert "derives_from|proves|prerequisite_of" in rendered
+
+
+class TestSectionConceptParser:
+    def test_parse_section_response_valid_dict(self):
+        valid_dict = {
+            "concepts": [
+                {
+                    "title": "Critical Speed",
+                    "node_type": "definition",
+                    "description": "The rotational speed at which resonance occurs.",
+                    "aliases": ["Natural frequency"],
+                    "prerequisites": ["Resonance", "Rotating Machinery"],
+                }
+            ],
+            "section_relationships": [
+                {
+                    "source": "Critical Speed",
+                    "target": "Resonance",
+                    "relationship_type": "derives_from",
+                    "reasoning": "Critical speed is derived from resonance theory.",
+                }
+            ],
+        }
+        result = parse_section_concept_response(valid_dict)
+        assert len(result["concepts"]) == 1
+        assert result["concepts"][0]["title"] == "Critical Speed"
+        assert len(result["section_relationships"]) == 1
+        assert result["section_relationships"][0]["source"] == "Critical Speed"
+
+    def test_parse_section_response_valid_json_string(self):
+        valid_json = json.dumps(
+            {
+                "concepts": [
+                    {
+                        "title": "Damping",
+                        "node_type": "concept",
+                        "description": "Energy dissipation in a system.",
+                        "aliases": [],
+                        "prerequisites": [],
+                    }
+                ],
+                "section_relationships": [],
+            }
+        )
+        result = parse_section_concept_response(valid_json)
+        assert len(result["concepts"]) == 1
+        assert result["concepts"][0]["title"] == "Damping"
+        assert result["section_relationships"] == []
+
+    def test_parse_section_response_invalid(self):
+        result = parse_section_concept_response("this is garbage")
+        assert result == {"concepts": [], "section_relationships": []}
+        assert isinstance(result, dict)
+
+    def test_parse_section_response_partial(self):
+        partial_dict = {"concepts": [{"title": "Test", "node_type": "definition"}]}
+        result = parse_section_concept_response(partial_dict)
+        assert len(result["concepts"]) == 1
+        assert result["section_relationships"] == []
+
+    def test_parse_section_response_markdown_wrapped(self):
+        markdown_json = """```json
+{
+  "concepts": [
+    {
+      "title": "Whirl",
+      "node_type": "definition",
+      "description": "Circular motion of the shaft centerline.",
+      "aliases": ["Precession"],
+      "prerequisites": ["Rotation"]
+    }
+  ],
+  "section_relationships": []
+}
+```"""
+        result = parse_section_concept_response(markdown_json)
+        assert len(result["concepts"]) == 1
+        assert result["concepts"][0]["title"] == "Whirl"
+        assert result["section_relationships"] == []
+
+    def test_parse_section_response_empty_dict(self):
+        result = parse_section_concept_response({})
+        assert result == {"concepts": [], "section_relationships": []}
+
+    def test_parse_section_response_malformed_json(self):
+        result = parse_section_concept_response('{"concepts": [incomplete')
+        assert result == {"concepts": [], "section_relationships": []}

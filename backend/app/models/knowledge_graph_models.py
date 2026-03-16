@@ -26,6 +26,8 @@ class RelationshipType(str, Enum):
     contradicts = "contradicts"
     defines = "defines"
     equivalent_form = "equivalent_form"
+    shared_variables = "shared_variables"
+    contains = "contains"
 
 
 class GraphJobStatus(str, Enum):
@@ -42,6 +44,7 @@ class NodeLevel(str, Enum):
 
     chapter = "chapter"
     section = "section"
+    subsection = "subsection"
     equation = "equation"
 
 

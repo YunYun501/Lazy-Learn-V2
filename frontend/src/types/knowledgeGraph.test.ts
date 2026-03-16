@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   isValidNodeType,
   isValidRelationshipType,
+  isValidNodeLevel,
   type NodeType,
   type RelationshipType,
+  type NodeLevel,
 } from './knowledgeGraph'
 
 describe('isValidNodeType', () => {
@@ -41,6 +43,8 @@ describe('isValidRelationshipType', () => {
       'contradicts',
       'defines',
       'equivalent_form',
+      'shared_variables',
+      'contains',
     ]
     validTypes.forEach((type) => {
       expect(isValidRelationshipType(type)).toBe(true)
@@ -52,5 +56,25 @@ describe('isValidRelationshipType', () => {
     expect(isValidRelationshipType('derives')).toBe(false)
     expect(isValidRelationshipType('DERIVES_FROM')).toBe(false)
     expect(isValidRelationshipType('')).toBe(false)
+  })
+})
+
+describe('isValidNodeLevel', () => {
+  it('returns true for all valid node levels', () => {
+    const validLevels: NodeLevel[] = [
+      'chapter',
+      'section',
+      'subsection',
+      'equation',
+    ]
+    validLevels.forEach((level) => {
+      expect(isValidNodeLevel(level)).toBe(true)
+    })
+  })
+
+  it('returns false for invalid level', () => {
+    expect(isValidNodeLevel('invalid')).toBe(false)
+    expect(isValidNodeLevel('CHAPTER')).toBe(false)
+    expect(isValidNodeLevel('')).toBe(false)
   })
 })
