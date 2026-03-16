@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Node, Edge } from '@xyflow/react'
-import { getGraphData, getGraphStatus } from '../api/knowledgeGraph'
+import { getGraphData, getGraphStatus, pollGraphStatus } from '../api/knowledgeGraph'
 import type { GraphData, ConceptNode, ConceptEdge } from '../types/knowledgeGraph'
 import { computeLayout } from './useGraphLayout'
 
@@ -62,6 +62,31 @@ export function useKnowledgeGraph(textbookId: string): UseKnowledgeGraphReturn {
           setProgressPct(status.progressPct)
           setProcessedChapters(status.processedChapters)
           setTotalChapters(status.totalChapters)
+          pollGraphStatus(
+            textbookId,
+            2000,
+            (pollStatus) => {
+              if (!cancelled) {
+                setProgressPct(pollStatus.progressPct)
+                setProcessedChapters(pollStatus.processedChapters)
+                setTotalChapters(pollStatus.totalChapters)
+              }
+            }
+          ).then((finalStatus) => {
+            if (!cancelled) {
+              if (finalStatus.status === 'completed') {
+                setReloadCount((c) => c + 1)
+              } else if (finalStatus.status === 'failed') {
+                setError(finalStatus.error ?? 'Graph generation failed')
+                setIsGenerating(false)
+              }
+            }
+          }).catch(() => {
+            if (!cancelled) {
+              setIsGenerating(false)
+              setError('Failed to track graph generation progress')
+            }
+          })
         } else if (status?.status === 'completed' || !status) {
           const data = await getGraphData(textbookId).catch(() => null)
           if (!cancelled) {

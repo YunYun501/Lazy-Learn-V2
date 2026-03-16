@@ -87,3 +87,6 @@ get_graph_job(job_id) -> dict | None
 update_graph_job(job_id, status=None, progress_pct=None, processed_chapters=None, error=None, completed_at=None) -> None
 get_latest_graph_job(textbook_id) -> dict | None
 ```
+
+## [2026-03-16] useExpandCollapse hook
+- Expand/collapse uses React Flow `hidden` on nodes and edges based on chapter expansion state.

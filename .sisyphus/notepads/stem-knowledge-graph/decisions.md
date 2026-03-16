@@ -14,3 +14,6 @@
 - **Tests**: TDD (pytest-asyncio backend, vitest frontend)
 - **Graph layout**: Dagre (`@dagrejs/dagre`) with rankdir=TB
 - **Node visual distinction**: theorem=pink, definition=amber, equation=text-accent; edge styles by type
+
+## [2026-03-16] useExpandCollapse hook
+- No new decisions.

@@ -1263,7 +1263,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/src/pages/GraphPage.tsx`, `frontend/src/hooks/useKnowledgeGraph.ts`, `frontend/src/App.tsx`
   - Pre-commit: `cd frontend && npx vitest run`
 
-- [ ] 13. Concept Details Panel
+- [x] 13. Concept Details Panel
 
   **What to do**:
   - Write RED vitest tests: test panel renders with concept data, test close behavior
@@ -1348,7 +1348,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/src/components/graph/ConceptDetailPanel.tsx`
   - Pre-commit: `cd frontend && npx vitest run`
 
-- [ ] 14. Multi-Level Expand/Collapse Logic
+- [x] 14. Multi-Level Expand/Collapse Logic
 
   **What to do**:
   - Write RED vitest tests: test expand/collapse state transitions, test node visibility
@@ -1520,7 +1520,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/src/components/CoursePreviewView.tsx`
   - Pre-commit: `cd frontend && npx tsc --noEmit`
 
-- [ ] 16. Background Job Progress Tracking UI
+- [x] 16. Background Job Progress Tracking UI
 
   **What to do**:
   - On the graph page, if graph generation is in progress (status='processing'), show a progress indicator:

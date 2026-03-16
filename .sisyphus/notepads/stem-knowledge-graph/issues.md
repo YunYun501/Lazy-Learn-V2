@@ -11,3 +11,6 @@
 - Main repo: C:\Local\Github\Lazy_Learn (main branch)
 - Feature worktree: C:\Local\Github\Lazy_Learn_stem (feature/stem-knowledge-graph branch)
 - All implementation work goes in the WORKTREE (Lazy_Learn_stem)
+
+## [2026-03-16] useExpandCollapse hook
+- No issues encountered.
