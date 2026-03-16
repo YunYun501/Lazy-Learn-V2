@@ -77,26 +77,41 @@ async def test_extract_concepts_with_mock_llm(store, tmp_path, monkeypatch):
     textbook_id, chapter_id = await _seed_textbook_and_chapter(store)
     job_id = await store.create_graph_job(textbook_id=textbook_id)
 
-    desc_dir = tmp_path / "data" / "descriptions" / textbook_id
-    desc_dir.mkdir(parents=True, exist_ok=True)
-    (desc_dir / "chapter_1.md").write_text("Some chapter text.", encoding="utf-8")
+    import aiosqlite
 
-    concepts = [
-        {
-            "title": "Vector",
-            "node_type": "concept",
-            "description": "A quantity with magnitude and direction.",
-            "aliases": ["Directed quantity"],
-        },
-        {
-            "title": "Scalar",
-            "node_type": "definition",
-            "description": "A magnitude without direction.",
-            "aliases": [],
-        },
-    ]
+    async with aiosqlite.connect(store.db_path) as db:
+        await db.execute(
+            "INSERT INTO extracted_content (id, chapter_id, content_type, content) VALUES (?, ?, ?, ?)",
+            (
+                "ec-1",
+                chapter_id,
+                "text",
+                "Vectors are quantities with magnitude and direction. Scalars have only magnitude.",
+            ),
+        )
+        await db.commit()
+
+    concepts_response = {
+        "concepts": [
+            {
+                "title": "Vector",
+                "node_type": "concept",
+                "description": "A quantity with magnitude and direction.",
+                "aliases": ["Directed quantity"],
+            },
+            {
+                "title": "Scalar",
+                "node_type": "definition",
+                "description": "A magnitude without direction.",
+                "aliases": [],
+            },
+        ]
+    }
+    relationships_response = {"relationships": []}
     ai_router = AsyncMock()
-    ai_router.get_json_response = AsyncMock(side_effect=[concepts, []])
+    ai_router.get_json_response = AsyncMock(
+        side_effect=[concepts_response, relationships_response]
+    )
 
     builder = KnowledgeGraphBuilder(store, ai_router=ai_router)
     await builder.build_graph(textbook_id=textbook_id, job_id=job_id)

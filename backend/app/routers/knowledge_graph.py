@@ -157,10 +157,12 @@ async def delete_graph(textbook_id: str):
 async def _build_graph_background(textbook_id: str, job_id: str):
     try:
         from app.services.knowledge_graph_builder import KnowledgeGraphBuilder
+        from app.services.ai_router import AIRouter
 
         store = get_storage()
         await store.initialize()
-        builder = KnowledgeGraphBuilder(store=store)
+        ai_router = AIRouter()
+        builder = KnowledgeGraphBuilder(store=store, ai_router=ai_router)
         await builder.build_graph(textbook_id=textbook_id, job_id=job_id)
     except Exception as e:
         store = get_storage()

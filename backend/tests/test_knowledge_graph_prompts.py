@@ -16,6 +16,7 @@ class TestPromptRendering:
             key_concepts="Causality, Stability, Region of Convergence",
             prerequisites="Fourier Transform, Complex Numbers",
             mathematical_content=True,
+            chapter_content="The Z-transform converts a discrete-time signal into a complex frequency-domain representation.",
         )
         assert "The Z-Transform" in rendered
         assert "Chapter Number: 3" in rendered

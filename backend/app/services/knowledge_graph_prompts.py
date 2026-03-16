@@ -14,22 +14,27 @@ Prerequisites:
 
 Has Mathematical Content: {mathematical_content}
 
+Chapter Content (excerpt):
+{chapter_content}
+
 Extract these concepts as structured graph nodes. For each concept:
 - Classify its type: theorem, definition, equation, lemma, concept, or example
 - Write a brief description (1-2 sentences)
 - Identify any aliases or alternative names
 
-Return a JSON array with this exact structure:
-[
-  {{
-    "title": "concept name",
-    "node_type": "theorem|definition|equation|lemma|concept|example",
-    "description": "brief description",
-    "aliases": ["alt name 1", "alt name 2"]
-  }}
-]
+Return a JSON object with this exact structure:
+{{
+  "concepts": [
+    {{
+      "title": "concept name",
+      "node_type": "theorem|definition|equation|lemma|concept|example",
+      "description": "brief description",
+      "aliases": ["alt name 1", "alt name 2"]
+    }}
+  ]
+}}
 
-IMPORTANT: Return ONLY the JSON array. No other text. No markdown code blocks.
+IMPORTANT: Return ONLY valid JSON. The root must be an object with a "concepts" array.
 Use only these node_type values: theorem, definition, equation, lemma, concept, example
 """
 
@@ -54,18 +59,20 @@ Available relationship types:
 - defines: Definition A formally defines Term B
 - equivalent_form: A and B are equivalent representations (e.g., equivalent circuits)
 
-Return a JSON array of relationships:
-[
-  {{
-    "source": "concept title",
-    "target": "concept title",
-    "relationship_type": "one of the types above",
-    "confidence": 0.0-1.0,
-    "reasoning": "brief explanation"
-  }}
-]
+Return a JSON object with this exact structure:
+{{
+  "relationships": [
+    {{
+      "source": "concept title",
+      "target": "concept title",
+      "relationship_type": "one of the types above",
+      "confidence": 0.0-1.0,
+      "reasoning": "brief explanation"
+    }}
+  ]
+}}
 
-IMPORTANT: Return ONLY the JSON array. Only include relationships you are confident about.
+IMPORTANT: Return ONLY valid JSON. The root must be an object with a "relationships" array.
 Only use the exact relationship_type values listed above.
 """
 

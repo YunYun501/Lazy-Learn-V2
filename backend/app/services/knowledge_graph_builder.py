@@ -44,7 +44,10 @@ class KnowledgeGraphBuilder:
 
             for index, chapter in enumerate(chapters):
                 desc = await self._load_chapter_description(
-                    textbook_id, chapter["chapter_number"]
+                    textbook_id,
+                    chapter["chapter_number"],
+                    chapter_id=chapter["id"],
+                    chapter_title=chapter.get("title", ""),
                 )
                 if desc:
                     section_nodes = await self._extract_concepts_from_description(
@@ -79,24 +82,46 @@ class KnowledgeGraphBuilder:
             )
             raise
 
-    async def _load_chapter_description(self, textbook_id: str, chapter_number: str):
-        desc_path = (
-            Path("data") / "descriptions" / textbook_id / f"chapter_{chapter_number}.md"
-        )
-        if not desc_path.exists():
+    async def _load_chapter_description(
+        self,
+        textbook_id: str,
+        chapter_number: str,
+        chapter_id: str = "",
+        chapter_title: str = "",
+    ):
+        import aiosqlite
+
+        async with aiosqlite.connect(self.store.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT content_type, content FROM extracted_content WHERE chapter_id = ? ORDER BY rowid",
+                (chapter_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+        if not rows:
             return None
-        try:
-            content = desc_path.read_text(encoding="utf-8")
-            return {
-                "chapter_title": f"Chapter {chapter_number}",
-                "chapter_number": chapter_number,
-                "raw": content,
-                "key_concepts": [],
-                "prerequisites": [],
-                "mathematical_content": False,
-            }
-        except Exception:
-            return None
+
+        text_parts = []
+        has_math = False
+        for row in rows:
+            r = dict(row)
+            if r["content_type"] == "text":
+                text_parts.append(r["content"][:500])
+            elif r["content_type"] == "equation":
+                has_math = True
+                text_parts.append(r["content"][:200])
+
+        combined = "\n".join(text_parts)[:3000]
+
+        return {
+            "chapter_title": chapter_title or f"Chapter {chapter_number}",
+            "chapter_number": chapter_number,
+            "raw": combined,
+            "key_concepts": [],
+            "prerequisites": [],
+            "mathematical_content": has_math,
+        }
 
     async def _extract_concepts_from_description(
         self, textbook_id: str, chapter_id: str, chapter_desc: dict
@@ -120,15 +145,20 @@ class KnowledgeGraphBuilder:
             key_concepts=key_concepts_str,
             prerequisites=prerequisites_str,
             mathematical_content=chapter_desc.get("mathematical_content", False),
+            chapter_content=chapter_desc.get("raw", "No content available")[:2000],
         )
 
         try:
             raw = await self.ai_router.get_json_response(prompt)
-            if isinstance(raw, list):
+            if isinstance(raw, dict):
+                concepts = raw.get("concepts", [])
+            elif isinstance(raw, list):
                 concepts = raw
             elif isinstance(raw, str):
                 concepts = parse_concept_extraction_response(raw)
             else:
+                concepts = []
+            if not isinstance(concepts, list):
                 concepts = []
         except Exception:
             return []
@@ -164,11 +194,15 @@ class KnowledgeGraphBuilder:
 
         try:
             raw = await self.ai_router.get_json_response(prompt)
-            if isinstance(raw, list):
+            if isinstance(raw, dict):
+                relationships = raw.get("relationships", [])
+            elif isinstance(raw, list):
                 relationships = raw
             elif isinstance(raw, str):
                 relationships = parse_relationship_response(raw)
             else:
+                relationships = []
+            if not isinstance(relationships, list):
                 relationships = []
         except Exception:
             return
