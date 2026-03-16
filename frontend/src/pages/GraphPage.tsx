@@ -5,6 +5,7 @@ import '../styles/graph.css'
 import { nodeTypes } from '../components/graph/nodeTypes'
 import { useKnowledgeGraph } from '../hooks/useKnowledgeGraph'
 import { PixelButton } from '../components/pixel/PixelButton'
+import { GraphErrorBoundary } from '../components/graph/GraphErrorBoundary'
 import type { NodeMouseHandler } from '@xyflow/react'
 
 function GraphPageInner({ textbookId }: { textbookId: string }) {
@@ -97,23 +98,25 @@ function GraphPageInner({ textbookId }: { textbookId: string }) {
         </PixelButton>
         <span>Knowledge Graph</span>
       </div>
-      <div className="graph-page__canvas">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          onNodeClick={handleNodeClick}
-          nodesConnectable={false}
-          onlyRenderVisibleElements={true}
-          fitView
-          minZoom={0.1}
-          maxZoom={2}
-        >
-          <MiniMap />
-          <Controls />
-          <Background />
-        </ReactFlow>
-      </div>
+      <GraphErrorBoundary>
+        <div className="graph-page__canvas">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodeClick={handleNodeClick}
+            nodesConnectable={false}
+            onlyRenderVisibleElements={true}
+            fitView
+            minZoom={0.1}
+            maxZoom={2}
+          >
+            <MiniMap />
+            <Controls />
+            <Background />
+          </ReactFlow>
+        </div>
+      </GraphErrorBoundary>
     </div>
   )
 }

@@ -1601,7 +1601,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/src/pages/GraphPage.tsx`, `frontend/src/hooks/useKnowledgeGraph.ts`
   - Pre-commit: `cd frontend && npx vitest run`
 
-- [ ] 17. Edge Styling by Relationship Type
+- [x] 17. Edge Styling by Relationship Type
 
   **What to do**:
   - Write RED vitest tests: test edge style mapping function
@@ -1686,7 +1686,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/src/components/graph/edgeStyles.ts`, `frontend/src/components/graph/GraphLegend.tsx`, `frontend/src/styles/graph.css`
   - Pre-commit: `cd frontend && npx vitest run`
 
-- [ ] 18. Graph Page Loading States + Error Handling
+- [x] 18. Graph Page Loading States + Error Handling
 
   **What to do**:
   - Add comprehensive loading/error/empty states to GraphPage:
@@ -1759,7 +1759,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/src/pages/GraphPage.tsx`, `frontend/src/hooks/useKnowledgeGraph.ts`
   - Pre-commit: `cd frontend && npx vitest run`
 
-- [ ] 19. Integration Test — Full Pipeline End-to-End
+- [x] 19. Integration Test — Full Pipeline End-to-End
 
   **What to do**:
   - Write a comprehensive integration test that exercises the FULL pipeline:
