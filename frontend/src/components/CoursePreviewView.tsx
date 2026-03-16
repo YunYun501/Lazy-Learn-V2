@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PixelButton, PixelPanel } from './pixel'
 import { ChapterVerification } from './ChapterVerification'
 import { ChapterBrowser } from './ChapterBrowser'
 import { MaterialBrowser } from './MaterialBrowser'
 import { verifyChapters } from '../api/pipeline'
+import { buildGraph, getGraphStatus } from '../api/knowledgeGraph'
 import { PipelineProgress } from './PipelineProgress'
 import type { Course } from '../api/courses'
 import type { Textbook } from '../api/textbooks'
@@ -43,6 +44,8 @@ export function CoursePreviewView({
   const navigate = useNavigate()
   const [selectedTextbookId, setSelectedTextbookId] = useState<string | null>(null)
   const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null)
+  const [graphExists, setGraphExists] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const handleBeginStudy = () => {
     if (selectedTextbookId) {
@@ -59,6 +62,27 @@ export function CoursePreviewView({
       console.error('Failed to verify chapters:', error)
     }
     onBack()
+  }
+
+  useEffect(() => {
+    if (!selectedTextbookId) {
+      setGraphExists(false)
+      return
+    }
+    getGraphStatus(selectedTextbookId)
+      .then(status => setGraphExists(status.status === 'completed'))
+      .catch(() => setGraphExists(false))
+  }, [selectedTextbookId])
+
+  const handleGenerateRelationship = async () => {
+    if (!selectedTextbookId) return
+    setIsGenerating(true)
+    try {
+      await buildGraph(selectedTextbookId)
+      navigate(`/graph/${selectedTextbookId}`)
+    } catch {
+      setIsGenerating(false)
+    }
   }
 
   const showVerification =
@@ -87,6 +111,13 @@ export function CoursePreviewView({
       <div className="preview-content">
         <div className="preview-header">
           <h2 className="preview-course-title">{course?.name}</h2>
+          <PixelButton
+            variant="primary"
+            disabled={!selectedTextbookId || pipelineStatus !== 'fully_extracted' || isGenerating}
+            onClick={graphExists ? () => navigate(`/graph/${selectedTextbookId}`) : handleGenerateRelationship}
+          >
+            {isGenerating ? 'Generating...' : graphExists ? 'View Graph' : 'Generate Relationship'}
+          </PixelButton>
         </div>
 
         <div className="preview-panels">

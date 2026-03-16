@@ -7,6 +7,7 @@ import { BookshelfPage } from './pages/BookshelfPage'
 import { DeskPage } from './pages/DeskPage'
 import { SettingsPage } from './pages/SettingsPage'
 import SplashScreen from './components/SplashScreen'
+import GraphPage from './pages/GraphPage'
 
 function App() {
   const [backendReady, setBackendReady] = useState(false)
@@ -21,6 +22,7 @@ function App() {
         <Route path="/" element={<BookshelfPage />} />
         <Route path="/desk/:textbookId" element={<DeskPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/graph/:textbookId" element={<GraphPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

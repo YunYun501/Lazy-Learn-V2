@@ -1163,7 +1163,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/src/hooks/useGraphLayout.ts`, `frontend/src/hooks/useGraphLayout.test.ts`
   - Pre-commit: `cd frontend && npx vitest run`
 
-- [ ] 12. GraphPage — Main Graph Exploration Page with React Flow
+- [x] 12. GraphPage — Main Graph Exploration Page with React Flow
 
   **What to do**:
   - Write RED vitest tests first: test page renders, test React Flow container present
@@ -1436,7 +1436,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/src/hooks/useExpandCollapse.ts`
   - Pre-commit: `cd frontend && npx vitest run`
 
-- [ ] 15. "Generate Relationship" Button + Navigation
+- [x] 15. "Generate Relationship" Button + Navigation
 
   **What to do**:
   - Add "Generate Relationship" button to `frontend/src/components/CoursePreviewView.tsx`:
