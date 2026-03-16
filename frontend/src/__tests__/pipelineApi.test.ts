@@ -1,3 +1,5 @@
+/* eslint-disable no-var */
+declare var global: any
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   getTextbookStatus,

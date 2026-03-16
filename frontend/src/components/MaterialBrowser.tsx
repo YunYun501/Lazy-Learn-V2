@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { PixelButton } from './pixel'
 import { getMaterialTopics, rescanMaterial, checkMaterialRelevance, getMaterialRelevance } from '../api/universityMaterials'
 import type { MaterialTopic } from '../api/universityMaterials'

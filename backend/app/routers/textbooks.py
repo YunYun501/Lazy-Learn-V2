@@ -6,11 +6,24 @@ from typing import Optional
 
 import fitz
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from pydantic import BaseModel
 
 from app.core.config import get_deepseek_api_key, settings
-from app.models.pipeline_models import ChapterVerificationRequest, ChapterWithStatus, ExtractionStatus, PipelineStatus
+from app.models.pipeline_models import (
+    ChapterVerificationRequest,
+    ChapterWithStatus,
+    ExtractionStatus,
+    PipelineStatus,
+)
 from app.services.ai_router import AIRouter
 from app.services.content_extractor import ContentExtractor
 from app.services.filesystem import FilesystemManager
@@ -63,19 +76,27 @@ def _coerce_int(value: Optional[str], default: int = 0) -> int:
         return default
 
 
-def _build_subsections(toc_entries: list[dict], section_start: int, section_end: int, subsection_level: int = 3) -> list[dict]:
+def _build_subsections(
+    toc_entries: list[dict],
+    section_start: int,
+    section_end: int,
+    subsection_level: int = 3,
+) -> list[dict]:
     """Build sub-sections within a section's page range at the given TOC level."""
     subs = [
         entry
         for entry in toc_entries
-        if entry.get("level") == subsection_level and section_start <= entry.get("page", 1) <= section_end
+        if entry.get("level") == subsection_level
+        and section_start <= entry.get("page", 1) <= section_end
     ]
     subs.sort(key=lambda entry: entry.get("page", 1))
     built: list[dict] = []
     for idx, entry in enumerate(subs):
         sub_start = _coerce_int(entry.get("page", 1), 1)
         next_page = subs[idx + 1].get("page") if idx + 1 < len(subs) else None
-        sub_end = _coerce_int(next_page, section_end + 1) - 1 if next_page else section_end
+        sub_end = (
+            _coerce_int(next_page, section_end + 1) - 1 if next_page else section_end
+        )
         built.append(
             {
                 "section_number": idx + 1,
@@ -87,26 +108,36 @@ def _build_subsections(toc_entries: list[dict], section_start: int, section_end:
     return built
 
 
-def _build_sections(toc_entries: list[dict], page_start: int, page_end: int, section_level: int = 2) -> list[dict]:
+def _build_sections(
+    toc_entries: list[dict], page_start: int, page_end: int, section_level: int = 2
+) -> list[dict]:
     """Build sections within a chapter's page range at the given TOC level."""
     sections = [
         entry
         for entry in toc_entries
-        if entry.get("level") == section_level and page_start <= entry.get("page", 1) <= page_end
+        if entry.get("level") == section_level
+        and page_start <= entry.get("page", 1) <= page_end
     ]
     sections.sort(key=lambda entry: entry.get("page", 1))
     built: list[dict] = []
     for idx, entry in enumerate(sections):
         section_start = _coerce_int(entry.get("page", 1), 1)
         next_page = sections[idx + 1].get("page") if idx + 1 < len(sections) else None
-        section_end = _coerce_int(next_page, page_end + 1) - 1 if next_page else page_end
+        section_end = (
+            _coerce_int(next_page, page_end + 1) - 1 if next_page else page_end
+        )
         built.append(
             {
                 "section_number": idx + 1,
                 "title": entry.get("title", ""),
                 "page_start": section_start,
                 "page_end": section_end,
-                "subsections": _build_subsections(toc_entries, section_start, section_end, subsection_level=section_level + 1),
+                "subsections": _build_subsections(
+                    toc_entries,
+                    section_start,
+                    section_end,
+                    subsection_level=section_level + 1,
+                ),
             }
         )
     return built
@@ -135,8 +166,14 @@ def _build_toc_payload(toc_entries: list[dict], total_pages: int) -> dict:
     chapters: list[dict] = []
     for idx, entry in enumerate(chapter_entries):
         page_start = _coerce_int(entry.get("page", 1), 1)
-        next_page = chapter_entries[idx + 1].get("page") if idx + 1 < len(chapter_entries) else None
-        page_end = _coerce_int(next_page, total_pages + 1) - 1 if next_page else total_pages
+        next_page = (
+            chapter_entries[idx + 1].get("page")
+            if idx + 1 < len(chapter_entries)
+            else None
+        )
+        page_end = (
+            _coerce_int(next_page, total_pages + 1) - 1 if next_page else total_pages
+        )
         ch_level = entry.get("level", 1)
         chapters.append(
             {
@@ -144,7 +181,9 @@ def _build_toc_payload(toc_entries: list[dict], total_pages: int) -> dict:
                 "title": entry.get("title", ""),
                 "page_start": page_start,
                 "page_end": page_end,
-                "sections": _build_sections(toc_entries, page_start, page_end, section_level=ch_level + 1),
+                "sections": _build_sections(
+                    toc_entries, page_start, page_end, section_level=ch_level + 1
+                ),
             }
         )
     return {"chapters": chapters}
@@ -162,7 +201,9 @@ class TocExtractionService:
         self.filesystem = filesystem
         self.ai_provider = ai_provider
         self.mineru_extractor = mineru_extractor
-        self.parser = PDFParser(storage=store, filesystem=filesystem, ai_provider=ai_provider)
+        self.parser = PDFParser(
+            storage=store, filesystem=filesystem, ai_provider=ai_provider
+        )
         self._logger = logging.getLogger(__name__)
 
     async def extract_toc(self, textbook_id: str) -> dict:
@@ -179,8 +220,12 @@ class TocExtractionService:
 
             # 2. No bookmarks — check if flattened/scanned
             if self.parser.is_flattened(doc) and self._has_mineru():
-                self._logger.info("Flattened PDF detected; using MinerU OCR for TOC extraction.")
-                toc_entries = await self._mineru_toc_pipeline(doc, filepath, textbook_id)
+                self._logger.info(
+                    "Flattened PDF detected; using MinerU OCR for TOC extraction."
+                )
+                toc_entries = await self._mineru_toc_pipeline(
+                    doc, filepath, textbook_id
+                )
             else:
                 # 3. Not flattened — use embedded text AI fallback
                 toc_entries = await self.parser.ai_toc_fallback(doc)
@@ -190,7 +235,9 @@ class TocExtractionService:
             doc.close()
 
     def _has_mineru(self) -> bool:
-        return self.mineru_extractor is not None and self.mineru_extractor.is_available()
+        return (
+            self.mineru_extractor is not None and self.mineru_extractor.is_available()
+        )
 
     async def _mineru_toc_pipeline(
         self, doc: fitz.Document, filepath: str, textbook_id: str
@@ -208,7 +255,9 @@ class TocExtractionService:
         )
 
         if not mineru_pages:
-            self._logger.warning("MinerU returned no pages; falling back to Full Document.")
+            self._logger.warning(
+                "MinerU returned no pages; falling back to Full Document."
+            )
             return [{"level": 1, "title": "Full Document", "page": 1}]
 
         # Cache MinerU results for reuse in extraction phase
@@ -222,7 +271,9 @@ class TocExtractionService:
 
         # Run AI TOC detection on the OCR'd text
         toc_entries = await self.parser.ai_toc_from_text(pages_text)
-        self._logger.info(f"AI detected {len(toc_entries)} TOC entries from MinerU OCR text.")
+        self._logger.info(
+            f"AI detected {len(toc_entries)} TOC entries from MinerU OCR text."
+        )
         return toc_entries
 
     def _cache_mineru_pages(self, textbook_id: str, pages: dict[int, str]) -> None:
@@ -230,8 +281,11 @@ class TocExtractionService:
         cache_path = self.filesystem.mineru_cache_path(textbook_id)
         # Convert int keys to strings for JSON serialization
         serializable = {str(k): v for k, v in pages.items()}
-        cache_path.write_text(json.dumps(serializable, ensure_ascii=False), encoding="utf-8")
+        cache_path.write_text(
+            json.dumps(serializable, ensure_ascii=False), encoding="utf-8"
+        )
         self._logger.info(f"Cached {len(pages)} MinerU pages to {cache_path}")
+
 
 async def process_pdf_background(textbook_id: str):
     _job_status[textbook_id] = {
@@ -245,18 +299,24 @@ async def process_pdf_background(textbook_id: str):
         await storage.initialize()
         filesystem = get_filesystem()
         api_key = await get_deepseek_api_key()
-        ai_router = AIRouter(deepseek_api_key=api_key, openai_api_key=settings.OPENAI_API_KEY)
+        ai_router = AIRouter(
+            deepseek_api_key=api_key, openai_api_key=settings.OPENAI_API_KEY
+        )
         # Use DeepSeek provider for TOC AI extraction
         ai_provider = ai_router.deepseek
         # Create MinerU extractor (gracefully unavailable if not installed)
         mineru_extractor = None
         try:
             from app.services.mineru_parser import MinerUExtractor
+
             mineru_extractor = MinerUExtractor()
         except ImportError:
             pass
         toc_service = TocExtractionService(
-            storage, filesystem, ai_provider=ai_provider, mineru_extractor=mineru_extractor
+            storage,
+            filesystem,
+            ai_provider=ai_provider,
+            mineru_extractor=mineru_extractor,
         )
         relevance_service = RelevanceMatcher(store=storage, ai_router=ai_router)
         extraction_service = ContentExtractor(store=storage)
@@ -281,7 +341,9 @@ async def process_pdf_background(textbook_id: str):
             "status": pipeline_status,
             "chapters_found": len(chapters),
             "progress": 0 if pipeline_status == PipelineStatus.error.value else 100,
-            "step": "Failed" if pipeline_status == PipelineStatus.error.value else "TOC extracted",
+            "step": "Failed"
+            if pipeline_status == PipelineStatus.error.value
+            else "TOC extracted",
             "relevance_results": relevance_results,
             "error": result.get("error"),
         }
@@ -353,7 +415,9 @@ async def get_status(textbook_id: str):
     await storage.initialize()
     textbook = await storage.get_textbook(textbook_id)
 
-    pipeline_status: str = (textbook.get("pipeline_status") if textbook else None) or "not_found"
+    pipeline_status: str = (
+        textbook.get("pipeline_status") if textbook else None
+    ) or "not_found"
     chapters = await storage.list_chapters(textbook_id) if textbook else []
     legacy = _job_status.get(textbook_id, {})
     relevance_results = legacy.get("relevance_results")
@@ -424,6 +488,7 @@ async def delete_textbook(textbook_id: str):
 
     return {"detail": "Textbook deleted", "textbook_id": textbook_id}
 
+
 @router.get("/{textbook_id}/chapters/{chapter_num}/content")
 async def get_chapter_content(textbook_id: str, chapter_num: str, request: Request):
     """Return the extracted text and image URLs for a specific chapter."""
@@ -432,7 +497,12 @@ async def get_chapter_content(textbook_id: str, chapter_num: str, request: Reque
     filesystem = get_filesystem()
 
     # Read chapter text
-    chapter_path = filesystem.data_dir / "textbooks" / textbook_id / "chapters" / f"{chapter_num}.txt"
+    chapters_dir = (
+        filesystem.data_dir / "textbooks" / textbook_id / "chapters"
+    ).resolve()
+    chapter_path = (chapters_dir / f"{chapter_num}.txt").resolve()
+    if not str(chapter_path).startswith(str(chapters_dir)):
+        raise HTTPException(status_code=400, detail="Invalid chapter number")
     if not chapter_path.exists():
         raise HTTPException(status_code=404, detail=f"Chapter {chapter_num} not found")
 
@@ -443,11 +513,15 @@ async def get_chapter_content(textbook_id: str, chapter_num: str, request: Reque
     image_urls = []
     if images_dir.exists():
         for img in sorted(images_dir.glob("*.png")):
-            image_urls.append(f"{str(request.base_url).rstrip('/')}/api/textbooks/{textbook_id}/images/{img.name}")
+            image_urls.append(
+                f"{str(request.base_url).rstrip('/')}/api/textbooks/{textbook_id}/images/{img.name}"
+            )
 
     # Get chapter metadata from DB
     chapters = await storage.list_chapters(textbook_id)
-    chapter_meta = next((c for c in chapters if c["chapter_number"] == chapter_num), None)
+    chapter_meta = next(
+        (c for c in chapters if c["chapter_number"] == chapter_num), None
+    )
 
     return {
         "textbook_id": textbook_id,
@@ -464,8 +538,12 @@ async def get_chapter_content(textbook_id: str, chapter_num: str, request: Reque
 async def serve_image(textbook_id: str, filename: str):
     """Serve an extracted image file."""
     from fastapi.responses import FileResponse
+
     filesystem = get_filesystem()
-    image_path = filesystem.data_dir / "textbooks" / textbook_id / "images" / filename
+    images_dir = (filesystem.data_dir / "textbooks" / textbook_id / "images").resolve()
+    image_path = (images_dir / filename).resolve()
+    if not str(image_path).startswith(str(images_dir)):
+        raise HTTPException(status_code=400, detail="Invalid filename")
     if not image_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
     return FileResponse(str(image_path))
@@ -488,6 +566,7 @@ async def get_section_subsections(textbook_id: str, section_id: str):
     subsections = await storage.get_subsections_for_section(section_id)
     return subsections
 
+
 # ---------------------------------------------------------------------------
 # Textbook Finder — AI recommendation endpoint
 # ---------------------------------------------------------------------------
@@ -501,8 +580,11 @@ class RecommendRequest(BaseModel):
 async def recommend_textbooks(body: RecommendRequest):
     """Recommend relevant textbooks based on course material descriptions."""
     if not body.descriptions:
-        raise HTTPException(status_code=400, detail="At least one description is required")
+        raise HTTPException(
+            status_code=400, detail="At least one description is required"
+        )
     from app.services.deepseek_provider import DeepSeekProvider
+
     provider = DeepSeekProvider(api_key=await get_deepseek_api_key())
     recommendations = await find_textbooks(
         course_descriptions=body.descriptions,
@@ -541,7 +623,9 @@ async def verify_chapters(
         )
 
     extraction_service = ContentExtractor(store=storage)
-    orchestrator = PipelineOrchestrator(store=storage, extraction_service=extraction_service)
+    orchestrator = PipelineOrchestrator(
+        store=storage, extraction_service=extraction_service
+    )
     await orchestrator.submit_verification(textbook_id, body.selected_chapter_ids)
     background_tasks.add_task(
         orchestrator.run_extraction_phase, textbook_id, body.selected_chapter_ids
@@ -577,7 +661,9 @@ async def extract_deferred(
         )
 
     extraction_service = ContentExtractor(store=storage)
-    orchestrator = PipelineOrchestrator(store=storage, extraction_service=extraction_service)
+    orchestrator = PipelineOrchestrator(
+        store=storage, extraction_service=extraction_service
+    )
     await orchestrator.run_deferred_extraction(textbook_id, body.chapter_ids)
     background_tasks.add_task(
         orchestrator.run_extraction_phase, textbook_id, body.chapter_ids

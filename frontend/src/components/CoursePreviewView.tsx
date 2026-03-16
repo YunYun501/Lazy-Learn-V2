@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PixelButton, PixelPanel } from './pixel'
 import { ChapterVerification } from './ChapterVerification'
@@ -33,7 +33,7 @@ export function CoursePreviewView({
   onBack,
   onBeginStudy,
   onUpload,
-  onDelete,
+  onDelete: _onDelete,
   isLoading = false,
   pipelineStatus,
   pipelineChapters,

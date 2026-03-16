@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { PixelButton, PixelPanel } from './pixel'
 import { getExtractionProgress, extractDeferred } from '../api/pipeline'
 import type { PipelineStatus, ExtractionStatus, ChapterWithStatus } from '../types/pipeline'

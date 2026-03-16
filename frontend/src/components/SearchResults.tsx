@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { PixelBadge, PixelButton } from './pixel'
 import type { CategorizedMatch } from '../api/search'
 import '../styles/desk.css'

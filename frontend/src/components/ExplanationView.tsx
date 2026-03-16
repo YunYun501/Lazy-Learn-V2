@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { API_BASE } from '../api/config'
 import { ContentRenderer } from './ContentRenderer'
 import { PixelButton } from './pixel'

@@ -1,3 +1,5 @@
+/* eslint-disable no-var */
+declare var global: any
 import '@testing-library/jest-dom'
 import { render, screen, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, afterEach } from 'vitest'

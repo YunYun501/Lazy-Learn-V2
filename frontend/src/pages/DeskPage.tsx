@@ -63,7 +63,7 @@ export function DeskPage() {
 
   const { messages, loading, sendMessage } = useConversation(handleAiSend)
   const { panelA, panelB, merged, swapPanels, toggleMerge } = usePanelLayout()
-  const { pinnedImages, pinnedFormulas, recentConcepts, pinImage, unpinImage } = usePinnedItems()
+  const { pinnedImages, pinnedFormulas, recentConcepts, pinImage: _pinImage, unpinImage } = usePinnedItems()
 
   // ESC key: go back to bookshelf
   useEffect(() => {

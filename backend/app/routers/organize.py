@@ -1,14 +1,29 @@
 """Router for the Material Organizer — auto-categorize course files into folders."""
+
 import uuid
+from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from app.core.config import get_deepseek_api_key
+from app.core.config import get_deepseek_api_key, settings
 from app.services.deepseek_provider import DeepSeekProvider
 from app.services.document_parser import DocumentParser
 from app.services.material_organizer import MaterialOrganizer
+
+
+def _validate_path_within_data_dir(path_str: str) -> Path:
+    """Ensure the given path resolves within the DATA_DIR."""
+    data_dir = settings.DATA_DIR.resolve()
+    resolved = Path(path_str).resolve()
+    if not str(resolved).startswith(str(data_dir)):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path must be within the application data directory",
+        )
+    return resolved
+
 
 router = APIRouter(prefix="/api/organize", tags=["organize"])
 
@@ -102,8 +117,10 @@ async def organize_materials(
 
     Returns a job_id that can be polled via GET /api/organize/{job_id}/status.
     """
+    source = _validate_path_within_data_dir(request.source_dir)
+    dest = _validate_path_within_data_dir(request.dest_dir)
     job_id = str(uuid.uuid4())
-    background_tasks.add_task(_run_organize, job_id, request.source_dir, request.dest_dir)
+    background_tasks.add_task(_run_organize, job_id, str(source), str(dest))
     return OrganizeResponse(job_id=job_id, message="Organization started")
 
 

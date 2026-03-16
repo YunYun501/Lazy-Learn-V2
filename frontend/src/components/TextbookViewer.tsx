@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { ContentRenderer } from './ContentRenderer'
 import { PixelButton } from './pixel'
 import { getChapterContent } from '../api/chapters'

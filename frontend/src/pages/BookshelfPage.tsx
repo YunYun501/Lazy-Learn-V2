@@ -40,7 +40,7 @@ export function BookshelfPage() {
   // Preview view state
   const [previewTextbooks, setPreviewTextbooks] = useState<Textbook[]>([])
   const [previewMaterials, setPreviewMaterials] = useState<UniversityMaterial[]>([])
-  const [selectedTextbookId, setSelectedTextbookId] = useState<string | null>(null)
+  const [_selectedTextbookId, setSelectedTextbookId] = useState<string | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
 
   const loadCourses = async () => {
