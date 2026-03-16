@@ -1,0 +1,126 @@
+V3 MIGRATION - FINAL VERIFICATION REPORT
+=========================================
+
+TASK COMPLETION: ✓ 100% COMPLETE
+
+DELIVERABLES VERIFICATION:
+===========================
+
+1. ✓ MIGRATE_V3_SQL constant defined
+   Location: backend/app/services/storage.py, lines 109-150
+   Content: 42 lines of SQL with 3 CREATE TABLE and 3 CREATE INDEX statements
+   Status: VERIFIED
+
+2. ✓ _migrate_v3() async method implemented
+   Location: backend/app/services/storage.py, lines 228-231
+   Implementation: Executes MIGRATE_V3_SQL via db.executescript()
+   Status: VERIFIED
+
+3. ✓ _migrate_v3() called from initialize()
+   Location: backend/app/services/storage.py, line 168
+   Order: Called after _migrate_v2() as required
+   Status: VERIFIED
+
+4. ✓ Test file created with 7 tests
+   Location: backend/tests/test_storage_v3.py
+   Tests:
+     - test_concept_nodes_table_created
+     - test_concept_edges_table_created
+     - test_graph_generation_jobs_table_created
+     - test_v3_migration_idempotent
+     - test_concept_nodes_indexes_created
+     - test_concept_edges_indexes_created
+     - test_graph_jobs_indexes_created
+   Status: VERIFIED
+
+5. ✓ All tests passing
+   Command: cd backend && python -m pytest tests/test_storage_v3.py -v
+   Result: 7/7 PASSED
+   Status: VERIFIED
+
+6. ✓ No regressions in existing tests
+   Command: cd backend && python -m pytest tests/test_storage.py -v
+   Result: 3/3 PASSED
+   Status: VERIFIED
+
+TABLE SCHEMAS VERIFICATION:
+===========================
+
+concept_nodes table:
+  ✓ id (TEXT PRIMARY KEY)
+  ✓ textbook_id (TEXT NOT NULL)
+  ✓ title (TEXT NOT NULL)
+  ✓ description (TEXT)
+  ✓ node_type (TEXT NOT NULL)
+  ✓ level (TEXT NOT NULL)
+  ✓ source_chapter_id (TEXT)
+  ✓ source_section_id (TEXT)
+  ✓ source_page (INTEGER)
+  ✓ metadata_json (TEXT)
+  ✓ created_at (TEXT NOT NULL)
+
+concept_edges table:
+  ✓ id (TEXT PRIMARY KEY)
+  ✓ textbook_id (TEXT NOT NULL)
+  ✓ source_node_id (TEXT NOT NULL)
+  ✓ target_node_id (TEXT NOT NULL)
+  ✓ relationship_type (TEXT NOT NULL)
+  ✓ confidence (REAL DEFAULT 1.0)
+  ✓ reasoning (TEXT)
+  ✓ created_at (TEXT NOT NULL)
+
+graph_generation_jobs table:
+  ✓ id (TEXT PRIMARY KEY)
+  ✓ textbook_id (TEXT NOT NULL)
+  ✓ status (TEXT DEFAULT 'pending')
+  ✓ progress_pct (REAL DEFAULT 0.0)
+  ✓ total_chapters (INTEGER DEFAULT 0)
+  ✓ processed_chapters (INTEGER DEFAULT 0)
+  ✓ error (TEXT)
+  ✓ created_at (TEXT NOT NULL)
+  ✓ completed_at (TEXT)
+
+INDEXES VERIFICATION:
+=====================
+✓ idx_concept_nodes_textbook ON concept_nodes(textbook_id)
+✓ idx_concept_edges_textbook ON concept_edges(textbook_id)
+✓ idx_graph_jobs_textbook ON graph_generation_jobs(textbook_id)
+
+PATTERN COMPLIANCE:
+===================
+✓ Follows V2 migration pattern exactly
+✓ Uses CREATE TABLE IF NOT EXISTS (idempotent)
+✓ Uses CREATE INDEX IF NOT EXISTS (idempotent)
+✓ Wrapped in async method with db.executescript()
+✓ Called from initialize() in correct order
+✓ No foreign key constraints (SQLite FK enforcement off)
+✓ Uses raw SQL with aiosqlite only (no ORM)
+✓ TDD approach: tests written first, then implementation
+
+TEST EXECUTION SUMMARY:
+=======================
+
+V3 Migration Tests:
+  test_concept_nodes_table_created ................ PASSED
+  test_concept_edges_table_created ................ PASSED
+  test_graph_generation_jobs_table_created ........ PASSED
+  test_v3_migration_idempotent .................... PASSED
+  test_concept_nodes_indexes_created ............. PASSED
+  test_concept_edges_indexes_created ............. PASSED
+  test_graph_jobs_indexes_created ................ PASSED
+
+Existing Storage Tests (Regression Check):
+  test_textbook_crud ............................. PASSED
+  test_chapter_crud .............................. PASSED
+  test_filesystem_layout_creation ................ PASSED
+
+TOTAL: 10/10 PASSED (100%)
+
+EVIDENCE FILES CREATED:
+=======================
+✓ task-1-v3-migration-fresh.txt - Fresh database test results
+✓ task-1-v3-migration-idempotent.txt - Idempotency test results
+✓ task-1-v3-migration-summary.txt - Implementation summary
+✓ task-1-v3-migration-final-verification.txt - This file
+
+FINAL STATUS: ✓ TASK COMPLETE AND VERIFIED

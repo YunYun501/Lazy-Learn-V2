@@ -1,0 +1,31 @@
+V3 MIGRATION TEST RESULTS - FRESH DATABASE
+============================================
+
+Test Run: pytest tests/test_storage_v3.py -v
+Working Directory: C:\Local\Github\Lazy_Learn_stem\backend
+
+RESULTS:
+--------
+tests/test_storage_v3.py::test_concept_nodes_table_created PASSED        [ 14%]
+tests/test_storage_v3.py::test_concept_edges_table_created PASSED        [ 28%]
+tests/test_storage_v3.py::test_graph_generation_jobs_table_created PASSED [ 42%]
+tests/test_storage_v3.py::test_v3_migration_idempotent PASSED            [ 57%]
+tests/test_storage_v3.py::test_concept_nodes_indexes_created PASSED      [ 71%]
+tests/test_storage_v3.py::test_concept_edges_indexes_created PASSED      [ 85%]
+tests/test_storage_v3.py::test_graph_jobs_indexes_created PASSED         [100%]
+
+SUMMARY: 7 passed, 1 warning in 1.76s
+
+VERIFICATION:
+- ✓ concept_nodes table created with all required columns
+- ✓ concept_edges table created with all required columns
+- ✓ graph_generation_jobs table created with all required columns
+- ✓ All three indexes created successfully
+- ✓ Idempotent migration (initialize() called twice without error)
+- ✓ All data insertion and retrieval operations work correctly
+
+SCHEMA VALIDATION:
+- concept_nodes: id, textbook_id, title, description, node_type, level, source_chapter_id, source_section_id, source_page, metadata_json, created_at
+- concept_edges: id, textbook_id, source_node_id, target_node_id, relationship_type, confidence, reasoning, created_at
+- graph_generation_jobs: id, textbook_id, status, progress_pct, total_chapters, processed_chapters, error, created_at, completed_at
+- Indexes: idx_concept_nodes_textbook, idx_concept_edges_textbook, idx_graph_jobs_textbook

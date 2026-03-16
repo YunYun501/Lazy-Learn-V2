@@ -4,13 +4,47 @@ from typing import Optional
 
 
 class NodeType(str, Enum):
-    """Type of concept node in the knowledge graph."""
+    """Type of concept node in the knowledge graph.
 
+    Comprehensive list covering common STEM textbook entities.
+    The builder clamps any unrecognised LLM output to 'concept'.
+    """
+
+    # --- core mathematical ---
     theorem = "theorem"
     definition = "definition"
     equation = "equation"
     lemma = "lemma"
+    corollary = "corollary"
+    axiom = "axiom"
+    proof = "proof"
+    identity = "identity"
+    formula = "formula"
+
+    # --- scientific / physical ---
+    law = "law"
+    principle = "principle"
+    theory = "theory"
+    hypothesis = "hypothesis"
+    observation = "observation"
+    constant = "constant"
+    property = "property"
+
+    # --- engineering / applied ---
+    method = "method"
+    technique = "technique"
+    algorithm = "algorithm"
+    procedure = "procedure"
+    criterion = "criterion"
+    model = "model"
+    approximation = "approximation"
+    rule = "rule"
+    condition = "condition"
+    relation = "relation"
+
+    # --- general ---
     concept = "concept"
+    result = "result"
     example = "example"
 
 
@@ -26,7 +60,7 @@ class RelationshipType(str, Enum):
     contradicts = "contradicts"
     defines = "defines"
     equivalent_form = "equivalent_form"
-    shared_variables = "shared_variables"
+    variant_of = "variant_of"
     contains = "contains"
 
 
@@ -45,7 +79,6 @@ class NodeLevel(str, Enum):
     chapter = "chapter"
     section = "section"
     subsection = "subsection"
-    equation = "equation"
 
 
 class ConceptNode(BaseModel):
@@ -74,6 +107,7 @@ class ConceptEdge(BaseModel):
     relationship_type: RelationshipType
     confidence: float = 1.0
     reasoning: Optional[str] = None
+    metadata: Optional[dict] = None
     created_at: str
 
 

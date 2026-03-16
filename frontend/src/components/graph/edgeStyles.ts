@@ -52,19 +52,19 @@ const EDGE_STYLES: Record<RelationshipType, EdgeConfig> = {
     style: { stroke: '#6dce9e', strokeWidth: 2.5 },
     markerEnd: { type: MarkerType.ArrowClosed, color: '#6dce9e' },
   },
-  equivalent_form: {
-    style: { stroke: '#f5a623', strokeWidth: 2 },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#f5a623' },
-  },
-  shared_variables: {
-    style: { stroke: '#9c27b0', strokeWidth: 2, strokeDasharray: '4 4' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#9c27b0' },
-  },
-  contains: {
-    style: { stroke: '#555555', strokeWidth: 1, strokeDasharray: '6 3' },
-    markerEnd: { type: MarkerType.Arrow, color: '#555555' },
-  },
-}
+   equivalent_form: {
+      style: { stroke: '#f5a623', strokeWidth: 2 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#f5a623' },
+    },
+    variant_of: {
+      style: { stroke: '#ab47bc', strokeWidth: 2, strokeDasharray: '8 4' },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#ab47bc' },
+    },
+    contains: {
+      style: { stroke: '#78909c', strokeWidth: 1.5 },
+      markerEnd: { type: MarkerType.Arrow, color: '#78909c' },
+    },
+  }
 
 export function getEdgeStyle(relationshipType: RelationshipType): Partial<Edge> {
   const config = EDGE_STYLES[relationshipType] ?? EDGE_STYLES.uses
@@ -77,17 +77,17 @@ export function getEdgeStyle(relationshipType: RelationshipType): Partial<Edge> 
 }
 
 export const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
-  derives_from: 'derives from',
-  proves: 'proves',
-  prerequisite_of: 'prerequisite of',
-  uses: 'uses',
-  generalizes: 'generalizes',
-  specializes: 'specializes',
-  contradicts: 'contradicts',
-  defines: 'defines',
-  equivalent_form: 'equivalent form',
-  shared_variables: 'shared variables',
-  contains: 'contains',
-}
+    derives_from: 'derives from',
+    proves: 'proves',
+    prerequisite_of: 'prerequisite of',
+    uses: 'uses',
+    generalizes: 'generalizes',
+    specializes: 'specializes',
+    contradicts: 'contradicts',
+    defines: 'defines',
+    equivalent_form: 'equivalent form',
+    variant_of: 'variant of',
+    contains: 'contains',
+  }
 
 export { EDGE_STYLES }

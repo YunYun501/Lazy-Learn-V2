@@ -11,12 +11,10 @@ import {
 describe('isValidNodeType', () => {
   it('returns true for all valid node types', () => {
     const validTypes: NodeType[] = [
-      'theorem',
-      'definition',
-      'equation',
-      'lemma',
-      'concept',
-      'example',
+      'theorem', 'definition', 'equation', 'lemma', 'corollary', 'axiom', 'proof', 'identity', 'formula',
+      'law', 'principle', 'theory', 'hypothesis', 'observation', 'constant', 'property',
+      'method', 'technique', 'algorithm', 'procedure', 'criterion', 'model', 'approximation', 'rule', 'condition', 'relation',
+      'concept', 'result', 'example',
     ]
     validTypes.forEach((type) => {
       expect(isValidNodeType(type)).toBe(true)
@@ -43,7 +41,7 @@ describe('isValidRelationshipType', () => {
       'contradicts',
       'defines',
       'equivalent_form',
-      'shared_variables',
+      'variant_of',
       'contains',
     ]
     validTypes.forEach((type) => {
@@ -65,7 +63,6 @@ describe('isValidNodeLevel', () => {
       'chapter',
       'section',
       'subsection',
-      'equation',
     ]
     validLevels.forEach((level) => {
       expect(isValidNodeLevel(level)).toBe(true)

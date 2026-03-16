@@ -16,4 +16,13 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+nul
+
+# SQLite databases
+*.db
+
+# GitNexus
 .gitnexus
+
+# Node
+node_modules/

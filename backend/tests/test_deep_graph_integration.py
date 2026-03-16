@@ -129,342 +129,231 @@ async def _seed_extracted_content(store, chapter_id):
         await db.commit()
 
 
-def _mock_ai_router(chapter_concepts, section_concepts, relationships):
+def _mock_ai_router(responses_by_section, cross_section_response):
+    async def _get_json_response(prompt):
+        if "Concepts to analyze:" in prompt:
+            return cross_section_response
+        for section_title, response in responses_by_section.items():
+            if f"Section: {section_title}" in prompt:
+                return response
+        return {"concept_groups": [], "derivations": []}
+
     ai_router = AsyncMock()
-    ai_router.get_json_response = AsyncMock(
-        side_effect=[chapter_concepts, *section_concepts, relationships]
-    )
+    ai_router.get_json_response = AsyncMock(side_effect=_get_json_response)
     return ai_router
 
 
 async def _run_builder(
-    store,
-    tmp_path,
-    monkeypatch,
-    chapter_concepts,
-    section_concepts,
-    relationships,
+    store, tmp_path, monkeypatch, responses_by_section, relationships
 ):
     monkeypatch.chdir(tmp_path)
     textbook_id, chapter_id = await _seed_textbook_and_chapter(store)
     await _seed_sections(store, chapter_id)
     await _seed_extracted_content(store, chapter_id)
     job_id = await store.create_graph_job(textbook_id=textbook_id)
-    ai_router = _mock_ai_router(chapter_concepts, section_concepts, relationships)
+    ai_router = _mock_ai_router(responses_by_section, relationships)
     builder = KnowledgeGraphBuilder(store, ai_router=ai_router)
     await builder.build_graph(textbook_id=textbook_id, job_id=job_id)
     return textbook_id
 
 
 @pytest.mark.asyncio
-async def test_full_pipeline_creates_four_levels(store, tmp_path, monkeypatch):
-    chapter_concepts = {
-        "concepts": [
-            {
-                "title": "Shaft Design",
-                "node_type": "concept",
-                "description": "Design considerations for rotating shafts.",
-                "aliases": [],
-            }
-        ]
-    }
-    section_concepts = [
-        {
-            "concepts": [
+async def test_full_pipeline_creates_key_results(store, tmp_path, monkeypatch):
+    responses_by_section = {
+        "Critical Speeds": {
+            "concept_groups": [
                 {
-                    "title": "Critical Speed",
-                    "node_type": "theorem",
-                    "description": "Speed at which resonance occurs.",
-                    "aliases": [],
-                    "prerequisites": [],
-                }
-            ],
-            "section_relationships": [
-                {
-                    "source": "Critical Speed",
-                    "target": "Resonance",
-                    "relationship_type": "uses",
-                    "reasoning": "Critical speed analysis relies on resonance.",
-                }
-            ],
-        },
-        {
-            "concepts": [
-                {
-                    "title": "Resonance",
+                    "name": "Critical Speed Analysis",
+                    "description": "Methods for estimating shaft critical speed",
                     "node_type": "concept",
-                    "description": "Large amplitude response near natural frequency.",
-                    "aliases": [],
-                    "prerequisites": [],
+                    "members": [
+                        {
+                            "title": "Critical Speed Formula",
+                            "node_type": "formula",
+                            "defining_equation": "\\frac{1}{\\omega_c^2} = \\frac{1}{\\omega_1^2}",
+                            "description": "Approximation for critical speed",
+                        }
+                    ],
+                    "intra_relationships": [],
                 }
             ],
-            "section_relationships": [],
+            "derivations": [],
         },
-    ]
-    relationships = {
-        "relationships": [
-            {
-                "source": "Shaft Design",
-                "target": "Critical Speed",
-                "relationship_type": "uses",
-                "confidence": 0.9,
-                "reasoning": "Design depends on critical speed calculations.",
-            }
-        ]
+        "Balancing": {
+            "concept_groups": [
+                {
+                    "name": "Balancing Methods",
+                    "description": "Methods for balancing rotating machinery",
+                    "node_type": "concept",
+                    "members": [
+                        {
+                            "title": "Static Balance",
+                            "node_type": "method",
+                            "defining_equation": "",
+                            "description": "Balance condition for rotors",
+                        }
+                    ],
+                    "intra_relationships": [],
+                }
+            ],
+            "derivations": [],
+        },
     }
+    relationships = {"relationships": []}
 
     textbook_id = await _run_builder(
-        store,
-        tmp_path,
-        monkeypatch,
-        chapter_concepts,
-        section_concepts,
-        relationships,
+        store, tmp_path, monkeypatch, responses_by_section, relationships
     )
 
     chapter_nodes = await store.get_concept_nodes(textbook_id, level="chapter")
     section_nodes = await store.get_concept_nodes(textbook_id, level="section")
     subsection_nodes = await store.get_concept_nodes(textbook_id, level="subsection")
     equation_nodes = await store.get_concept_nodes(textbook_id, level="equation")
-    all_nodes = await store.get_concept_nodes(textbook_id)
 
     assert chapter_nodes
     assert section_nodes
     assert subsection_nodes
-    assert equation_nodes
-    assert len(all_nodes) >= 8
+    assert equation_nodes == []
 
 
 @pytest.mark.asyncio
-async def test_shared_variables_edges_created(store, tmp_path, monkeypatch):
-    chapter_concepts = {
-        "concepts": [
-            {
-                "title": "Shaft Design",
-                "node_type": "concept",
-                "description": "Design considerations for rotating shafts.",
-                "aliases": [],
-            }
-        ]
-    }
-    section_concepts = [
-        {
-            "concepts": [
+async def test_pipeline_creates_derivation_edges(store, tmp_path, monkeypatch):
+    responses_by_section = {
+        "Critical Speeds": {
+            "concept_groups": [
                 {
-                    "title": "Critical Speed",
-                    "node_type": "theorem",
-                    "description": "Speed at which resonance occurs.",
-                    "aliases": [],
-                    "prerequisites": [],
-                }
-            ],
-            "section_relationships": [],
-        },
-        {
-            "concepts": [
-                {
-                    "title": "Balancing",
+                    "name": "Critical Speed Analysis",
+                    "description": "Methods for estimating shaft critical speed",
                     "node_type": "concept",
-                    "description": "Mass distribution to reduce vibration.",
-                    "aliases": [],
-                    "prerequisites": [],
+                    "members": [
+                        {
+                            "title": "Rayleigh's Method",
+                            "node_type": "method",
+                            "defining_equation": "T = \\frac{1}{2}\\sum m_i \\omega_c^2 y_i^2",
+                            "description": "Energy-based method",
+                        },
+                        {
+                            "title": "Critical Speed Formula",
+                            "node_type": "formula",
+                            "defining_equation": "\\frac{1}{\\omega_c^2} = \\frac{1}{\\omega_1^2}",
+                            "description": "Approximation for critical speed",
+                        },
+                    ],
+                    "intra_relationships": [],
                 }
             ],
-            "section_relationships": [],
+            "derivations": [
+                {
+                    "source": "Rayleigh's Method",
+                    "target": "Critical Speed Formula",
+                    "description": "Energy balance leads to formula",
+                    "derivation_steps": [
+                        "T_{max} = V_{max}",
+                        "\\omega_c^2 = \\sum k_i y_i^2 / \\sum m_i y_i^2",
+                    ],
+                }
+            ],
         },
-    ]
+        "Balancing": {"concept_groups": [], "derivations": []},
+    }
     relationships = {"relationships": []}
 
     textbook_id = await _run_builder(
-        store,
-        tmp_path,
-        monkeypatch,
-        chapter_concepts,
-        section_concepts,
-        relationships,
+        store, tmp_path, monkeypatch, responses_by_section, relationships
+    )
+
+    edges = await store.get_concept_edges(textbook_id)
+    derives_edges = [
+        edge for edge in edges if edge["relationship_type"] == "derives_from"
+    ]
+    assert derives_edges
+    metadata = json.loads(derives_edges[0]["metadata_json"])
+    assert metadata["derivation_steps"]
+
+
+@pytest.mark.asyncio
+async def test_pipeline_no_shared_variables(store, tmp_path, monkeypatch):
+    responses_by_section = {
+        "Critical Speeds": {"concept_groups": [], "derivations": []},
+        "Balancing": {"concept_groups": [], "derivations": []},
+    }
+    relationships = {"relationships": []}
+
+    textbook_id = await _run_builder(
+        store, tmp_path, monkeypatch, responses_by_section, relationships
     )
 
     edges = await store.get_concept_edges(textbook_id)
     shared_edges = [
         edge for edge in edges if edge["relationship_type"] == "shared_variables"
     ]
-    equation_nodes = await store.get_concept_nodes(textbook_id, level="equation")
-    equation_ids = {node["id"] for node in equation_nodes}
-
-    assert shared_edges
-    assert all(edge["source_node_id"] in equation_ids for edge in shared_edges)
-    assert all(edge["target_node_id"] in equation_ids for edge in shared_edges)
+    assert shared_edges == []
 
 
 @pytest.mark.asyncio
-async def test_concept_dedup_across_sections(store, tmp_path, monkeypatch):
-    chapter_concepts = {
-        "concepts": [
-            {
-                "title": "Shaft Design",
-                "node_type": "concept",
-                "description": "Design considerations for rotating shafts.",
-                "aliases": [],
-            }
-        ]
+async def test_pipeline_concurrent_sections(store, tmp_path, monkeypatch):
+    responses_by_section = {
+        "Critical Speeds": {
+            "concept_groups": [
+                {
+                    "name": "Critical Speed Analysis",
+                    "description": "Methods for estimating shaft critical speed",
+                    "node_type": "concept",
+                    "members": [
+                        {
+                            "title": "Critical Speed Formula",
+                            "node_type": "formula",
+                            "defining_equation": "",
+                            "description": "Approximation for critical speed",
+                        }
+                    ],
+                    "intra_relationships": [],
+                }
+            ],
+            "derivations": [],
+        },
+        "Balancing": {
+            "concept_groups": [
+                {
+                    "name": "Balancing Methods",
+                    "description": "Methods for balancing rotating machinery",
+                    "node_type": "concept",
+                    "members": [
+                        {
+                            "title": "Static Balance",
+                            "node_type": "method",
+                            "defining_equation": "",
+                            "description": "Balance condition for rotors",
+                        }
+                    ],
+                    "intra_relationships": [],
+                }
+            ],
+            "derivations": [],
+        },
     }
-    section_concepts = [
-        {
-            "concepts": [
-                {
-                    "title": "Critical Speed",
-                    "node_type": "theorem",
-                    "description": "Speed at which resonance occurs.",
-                    "aliases": [],
-                    "prerequisites": [],
-                }
-            ],
-            "section_relationships": [],
-        },
-        {
-            "concepts": [
-                {
-                    "title": "Critical Speed",
-                    "node_type": "theorem",
-                    "description": "Shared concept across sections.",
-                    "aliases": [],
-                    "prerequisites": [],
-                }
-            ],
-            "section_relationships": [],
-        },
-    ]
     relationships = {"relationships": []}
 
     textbook_id = await _run_builder(
-        store,
-        tmp_path,
-        monkeypatch,
-        chapter_concepts,
-        section_concepts,
-        relationships,
+        store, tmp_path, monkeypatch, responses_by_section, relationships
     )
 
     nodes = await store.get_concept_nodes(textbook_id, level="subsection")
-    titles = [node["title"] for node in nodes]
-    assert titles.count("Critical Speed") == 1
+    titles = {node["title"] for node in nodes}
+    assert {"Critical Speed Formula", "Static Balance"}.issubset(titles)
 
 
 @pytest.mark.asyncio
-async def test_equation_nodes_have_metadata(store, tmp_path, monkeypatch):
-    chapter_concepts = {
-        "concepts": [
-            {
-                "title": "Shaft Design",
-                "node_type": "concept",
-                "description": "Design considerations for rotating shafts.",
-                "aliases": [],
-            }
-        ]
+async def test_pipeline_empty_llm_response(store, tmp_path, monkeypatch):
+    responses_by_section = {
+        "Critical Speeds": {"concept_groups": [], "derivations": []},
+        "Balancing": {"concept_groups": [], "derivations": []},
     }
-    section_concepts = [
-        {
-            "concepts": [
-                {
-                    "title": "Critical Speed",
-                    "node_type": "theorem",
-                    "description": "Speed at which resonance occurs.",
-                    "aliases": [],
-                    "prerequisites": [],
-                }
-            ],
-            "section_relationships": [],
-        },
-        {
-            "concepts": [
-                {
-                    "title": "Balancing",
-                    "node_type": "concept",
-                    "description": "Mass distribution to reduce vibration.",
-                    "aliases": [],
-                    "prerequisites": [],
-                }
-            ],
-            "section_relationships": [],
-        },
-    ]
     relationships = {"relationships": []}
 
     textbook_id = await _run_builder(
-        store,
-        tmp_path,
-        monkeypatch,
-        chapter_concepts,
-        section_concepts,
-        relationships,
+        store, tmp_path, monkeypatch, responses_by_section, relationships
     )
 
-    nodes = await store.get_concept_nodes(textbook_id, level="equation")
-    assert nodes
-    for node in nodes:
-        assert node["metadata_json"]
-        metadata = json.loads(node["metadata_json"])
-        assert isinstance(metadata.get("variables"), list)
-        assert isinstance(metadata.get("raw_latex"), str)
-
-
-@pytest.mark.asyncio
-async def test_contains_edges_link_hierarchy(store, tmp_path, monkeypatch):
-    chapter_concepts = {
-        "concepts": [
-            {
-                "title": "Shaft Design",
-                "node_type": "concept",
-                "description": "Design considerations for rotating shafts.",
-                "aliases": [],
-            }
-        ]
-    }
-    section_concepts = [
-        {
-            "concepts": [
-                {
-                    "title": "Critical Speed",
-                    "node_type": "theorem",
-                    "description": "Speed at which resonance occurs.",
-                    "aliases": [],
-                    "prerequisites": [],
-                }
-            ],
-            "section_relationships": [],
-        },
-        {
-            "concepts": [
-                {
-                    "title": "Balancing",
-                    "node_type": "concept",
-                    "description": "Mass distribution to reduce vibration.",
-                    "aliases": [],
-                    "prerequisites": [],
-                }
-            ],
-            "section_relationships": [],
-        },
-    ]
-    relationships = {"relationships": []}
-
-    textbook_id = await _run_builder(
-        store,
-        tmp_path,
-        monkeypatch,
-        chapter_concepts,
-        section_concepts,
-        relationships,
-    )
-
-    edges = await store.get_concept_edges(textbook_id)
-    contains_edges = [edge for edge in edges if edge["relationship_type"] == "contains"]
-    nodes = await store.get_concept_nodes(textbook_id)
-    nodes_by_id = {node["id"]: node for node in nodes}
-
-    assert contains_edges
-    for edge in contains_edges:
-        source = nodes_by_id[edge["source_node_id"]]
-        target = nodes_by_id[edge["target_node_id"]]
-        assert source["level"] in {"section", "chapter"}
-        assert target["level"] in {"equation", "subsection", "section", "chapter"}
+    subsection_nodes = await store.get_concept_nodes(textbook_id, level="subsection")
+    assert subsection_nodes == []

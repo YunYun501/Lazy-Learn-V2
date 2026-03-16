@@ -33,6 +33,7 @@ function mapEdge(raw: Record<string, unknown>): ConceptEdge {
     relationshipType: raw.relationship_type as ConceptEdge['relationshipType'],
     confidence: raw.confidence as number,
     reasoning: raw.reasoning as string | undefined,
+    metadata: raw.metadata as Record<string, unknown> | undefined,
     createdAt: raw.created_at as string,
   }
 }

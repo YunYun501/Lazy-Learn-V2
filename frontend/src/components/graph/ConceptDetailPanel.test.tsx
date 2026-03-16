@@ -39,20 +39,20 @@ describe('ConceptDetailPanel', () => {
 
   it('renders null when nodeId is null', () => {
     const { container } = render(
-      <ConceptDetailPanel textbookId="tb-1" nodeId={null} onClose={vi.fn()} />,
+      <ConceptDetailPanel textbookId="tb-1" nodeId={null} nodes={[]} onClose={vi.fn()} />,
     )
     expect(container.firstChild).toBeNull()
   })
 
   it('renders panel when nodeId is provided', async () => {
     mockGetNodeDetail.mockResolvedValue(makeDetail())
-    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" onClose={vi.fn()} />)
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
     expect(screen.getByTestId('concept-detail-panel')).toBeInTheDocument()
   })
 
   it('shows loading state then concept details', async () => {
     mockGetNodeDetail.mockResolvedValue(makeDetail())
-    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" onClose={vi.fn()} />)
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
 
     // Initially loading
     expect(screen.getByText('Loading...')).toBeInTheDocument()
@@ -70,7 +70,7 @@ describe('ConceptDetailPanel', () => {
   it('close button calls onClose', async () => {
     mockGetNodeDetail.mockResolvedValue(makeDetail())
     const onClose = vi.fn()
-    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" onClose={onClose} />)
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={onClose} />)
 
     const closeBtn = screen.getByRole('button', { name: /close/i })
     await userEvent.click(closeBtn)
@@ -79,7 +79,7 @@ describe('ConceptDetailPanel', () => {
 
   it('shows error message when API call fails', async () => {
     mockGetNodeDetail.mockRejectedValue(new Error('Network error'))
-    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" onClose={vi.fn()} />)
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByText('Error: Network error')).toBeInTheDocument()
@@ -102,7 +102,7 @@ describe('ConceptDetailPanel', () => {
         ],
       }),
     )
-    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" onClose={vi.fn()} />)
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByText('Relationships')).toBeInTheDocument()
@@ -127,7 +127,7 @@ describe('ConceptDetailPanel', () => {
         ],
       }),
     )
-    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" onClose={vi.fn()} />)
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByText('Used by')).toBeInTheDocument()
@@ -140,7 +140,7 @@ describe('ConceptDetailPanel', () => {
     mockGetNodeDetail.mockResolvedValue(
       makeDetail({ node: { ...makeDetail().node, description: undefined } }),
     )
-    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" onClose={vi.fn()} />)
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
 
     await waitFor(() => {
       expect(screen.getByText('Pythagorean Theorem')).toBeInTheDocument()

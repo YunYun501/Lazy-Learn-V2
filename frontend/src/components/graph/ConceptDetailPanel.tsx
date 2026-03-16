@@ -1,17 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import 'katex/dist/katex.min.css'
+import { BlockMath } from 'react-katex'
+import type { Node } from '@xyflow/react'
 import { getNodeDetail } from '../../api/knowledgeGraph'
 import type { ConceptNodeDetail } from '../../types/knowledgeGraph'
 
 interface ConceptDetailPanelProps {
   textbookId: string
   nodeId: string | null
+  nodes: Node[]
   onClose: () => void
 }
 
-export function ConceptDetailPanel({ textbookId, nodeId, onClose }: ConceptDetailPanelProps) {
+export function ConceptDetailPanel({ textbookId, nodeId, nodes, onClose }: ConceptDetailPanelProps) {
   const [detail, setDetail] = useState<ConceptNodeDetail | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const titleById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const n of nodes) {
+      const concept = (n.data as Record<string, unknown>)?.concept as { title?: string } | undefined
+      if (concept?.title) map.set(n.id, concept.title)
+    }
+    return map
+  }, [nodes])
 
   useEffect(() => {
     if (!nodeId) { setDetail(null); return }
@@ -48,24 +61,14 @@ export function ConceptDetailPanel({ textbookId, nodeId, onClose }: ConceptDetai
               Section: {String(detail.node.metadata.section_path)}
             </div>
           )}
-          {detail.node.level === 'equation' && detail.node.metadata?.variables && (
-            <div className="concept-detail-panel__relations">
-              <h4>Variables</h4>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {(detail.node.metadata.variables as string[]).map((v: string) => (
-                  <span key={v} style={{ fontFamily: 'monospace', fontSize: 10, background: '#16213e', border: '1px solid #2a4a7a', padding: '2px 6px' }}>{v}</span>
-                ))}
-              </div>
-            </div>
-          )}
-          {detail.node.level === 'equation' && detail.node.metadata?.raw_latex && (
-            <div className="concept-detail-panel__relations">
-              <h4>LaTeX</h4>
-              <code style={{ fontFamily: 'monospace', fontSize: 10, wordBreak: 'break-all', color: '#5b9cf6' }}>
-                {String(detail.node.metadata.raw_latex)}
-              </code>
-            </div>
-          )}
+           {detail.node.metadata?.defining_equation && (
+             <div className="concept-detail-panel__relations">
+               <h4>Defining Equation</h4>
+               <div className="concept-detail-panel__equation">
+                 <BlockMath math={String(detail.node.metadata.defining_equation)} />
+               </div>
+             </div>
+           )}
           {detail.outgoingEdges.length > 0 && (
             <div className="concept-detail-panel__relations">
               <h4>Relationships</h4>
@@ -74,7 +77,10 @@ export function ConceptDetailPanel({ textbookId, nodeId, onClose }: ConceptDetai
                   <li key={edge.id}>
                     <span className="edge-type">{edge.relationshipType.replace(/_/g, ' ')}</span>
                     {': '}
-                    <span className="edge-target">{edge.targetNodeId}</span>
+                    <span className="edge-target">{titleById.get(edge.targetNodeId) ?? edge.targetNodeId}</span>
+                    {edge.reasoning && (
+                      <div className="edge-reasoning">{edge.reasoning}</div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -86,9 +92,12 @@ export function ConceptDetailPanel({ textbookId, nodeId, onClose }: ConceptDetai
               <ul>
                 {detail.incomingEdges.map(edge => (
                   <li key={edge.id}>
-                    <span className="edge-source">{edge.sourceNodeId}</span>
+                    <span className="edge-source">{titleById.get(edge.sourceNodeId) ?? edge.sourceNodeId}</span>
                     {' → '}
                     <span className="edge-type">{edge.relationshipType.replace(/_/g, ' ')}</span>
+                    {edge.reasoning && (
+                      <div className="edge-reasoning">{edge.reasoning}</div>
+                    )}
                   </li>
                 ))}
               </ul>

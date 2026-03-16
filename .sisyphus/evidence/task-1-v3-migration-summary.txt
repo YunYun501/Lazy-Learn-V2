@@ -1,0 +1,135 @@
+V3 MIGRATION IMPLEMENTATION SUMMARY
+====================================
+
+TASK: Add SQLite V3 migration to backend/app/services/storage.py with three new tables
+for concept graph functionality.
+
+COMPLETION STATUS: ✓ COMPLETE
+
+DELIVERABLES CHECKLIST:
+=======================
+✓ MIGRATE_V3_SQL constant defined in storage.py
+✓ _migrate_v3() async method on MetadataStore class
+✓ _migrate_v3() called from initialize() after _migrate_v2()
+✓ Test file backend/tests/test_storage_v3.py with 7 tests
+✓ All tests passing (7/7)
+✓ No regressions in existing tests (3/3 existing tests still pass)
+
+IMPLEMENTATION DETAILS:
+======================
+
+1. MIGRATE_V3_SQL Constant (lines 109-150 in storage.py):
+   - CREATE TABLE concept_nodes with 11 columns
+   - CREATE TABLE concept_edges with 8 columns
+   - CREATE TABLE graph_generation_jobs with 9 columns
+   - CREATE INDEX for textbook_id on all three tables
+   - All statements use IF NOT EXISTS for idempotency
+
+2. _migrate_v3() Method (lines 228-231 in storage.py):
+   - Executes MIGRATE_V3_SQL via db.executescript()
+   - Commits transaction
+   - Follows exact pattern of _migrate_v2()
+
+3. initialize() Integration (line 168 in storage.py):
+   - Calls await self._migrate_v3(db) after _migrate_v2()
+   - Maintains idempotency (safe to call multiple times)
+
+TABLE SCHEMAS CREATED:
+======================
+
+concept_nodes:
+  - id (TEXT PRIMARY KEY)
+  - textbook_id (TEXT NOT NULL)
+  - title (TEXT NOT NULL)
+  - description (TEXT)
+  - node_type (TEXT NOT NULL)
+  - level (TEXT NOT NULL)
+  - source_chapter_id (TEXT)
+  - source_section_id (TEXT)
+  - source_page (INTEGER)
+  - metadata_json (TEXT)
+  - created_at (TEXT NOT NULL)
+
+concept_edges:
+  - id (TEXT PRIMARY KEY)
+  - textbook_id (TEXT NOT NULL)
+  - source_node_id (TEXT NOT NULL)
+  - target_node_id (TEXT NOT NULL)
+  - relationship_type (TEXT NOT NULL)
+  - confidence (REAL DEFAULT 1.0)
+  - reasoning (TEXT)
+  - created_at (TEXT NOT NULL)
+
+graph_generation_jobs:
+  - id (TEXT PRIMARY KEY)
+  - textbook_id (TEXT NOT NULL)
+  - status (TEXT DEFAULT 'pending')
+  - progress_pct (REAL DEFAULT 0.0)
+  - total_chapters (INTEGER DEFAULT 0)
+  - processed_chapters (INTEGER DEFAULT 0)
+  - error (TEXT)
+  - created_at (TEXT NOT NULL)
+  - completed_at (TEXT)
+
+INDEXES CREATED:
+================
+- idx_concept_nodes_textbook ON concept_nodes(textbook_id)
+- idx_concept_edges_textbook ON concept_edges(textbook_id)
+- idx_graph_jobs_textbook ON graph_generation_jobs(textbook_id)
+
+TEST RESULTS:
+=============
+
+V3 Migration Tests (7 tests):
+  ✓ test_concept_nodes_table_created - Insert/retrieve node with all fields
+  ✓ test_concept_edges_table_created - Insert/retrieve edge with all fields
+  ✓ test_graph_generation_jobs_table_created - Insert/retrieve job with all fields
+  ✓ test_v3_migration_idempotent - initialize() called twice, no errors
+  ✓ test_concept_nodes_indexes_created - Index exists
+  ✓ test_concept_edges_indexes_created - Index exists
+  ✓ test_graph_jobs_indexes_created - Index exists
+
+Existing Storage Tests (3 tests):
+  ✓ test_textbook_crud - No regression
+  ✓ test_chapter_crud - No regression
+  ✓ test_filesystem_layout_creation - No regression
+
+TOTAL: 10/10 tests passing
+
+MIGRATION PATTERN COMPLIANCE:
+=============================
+✓ Follows V2 migration pattern exactly
+✓ Uses CREATE TABLE IF NOT EXISTS (idempotent)
+✓ Uses CREATE INDEX IF NOT EXISTS (idempotent)
+✓ Wrapped in async method with db.executescript()
+✓ Called from initialize() in correct order
+✓ No foreign key constraints (SQLite FK enforcement off by default)
+✓ Uses raw SQL with aiosqlite only (no ORM)
+
+TESTING APPROACH:
+=================
+✓ TDD: Tests written first, then implementation
+✓ Uses pytest-asyncio with @pytest.mark.asyncio
+✓ Uses temporary databases (tmp_path fixture)
+✓ Tests verify table creation, data insertion/retrieval, indexes, idempotency
+✓ All tests use aiosqlite directly (matches production code)
+
+FILES MODIFIED:
+===============
+1. backend/app/services/storage.py
+   - Added MIGRATE_V3_SQL constant (42 lines)
+   - Added _migrate_v3() method (4 lines)
+   - Modified initialize() to call _migrate_v3() (1 line)
+
+2. backend/tests/test_storage_v3.py (NEW)
+   - Created with 7 comprehensive tests
+   - 230 lines of test code
+
+VERIFICATION:
+==============
+✓ All V3 tests pass
+✓ All existing tests still pass (no regressions)
+✓ Idempotency verified (initialize() called twice)
+✓ All table schemas match specification
+✓ All indexes created successfully
+✓ Data insertion and retrieval working correctly

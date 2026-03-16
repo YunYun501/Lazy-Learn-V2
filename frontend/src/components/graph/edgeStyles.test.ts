@@ -13,7 +13,7 @@ const ALL_RELATIONSHIP_TYPES: RelationshipType[] = [
   'contradicts',
   'defines',
   'equivalent_form',
-  'shared_variables',
+  'variant_of',
   'contains',
 ]
 
@@ -40,7 +40,7 @@ describe('getEdgeStyle', () => {
     expect(result.animated).toBe(false)
   })
 
-  it('handles all 9 relationship types without throwing', () => {
+  it('handles all 11 relationship types without throwing', () => {
     for (const type of ALL_RELATIONSHIP_TYPES) {
       expect(() => getEdgeStyle(type)).not.toThrow()
     }

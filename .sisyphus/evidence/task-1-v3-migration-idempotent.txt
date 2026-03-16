@@ -1,0 +1,23 @@
+V3 MIGRATION IDEMPOTENCY TEST
+==============================
+
+Test Run: pytest tests/test_storage_v3.py::test_v3_migration_idempotent -v
+Working Directory: C:\Local\Github\Lazy_Learn_stem\backend
+
+RESULTS:
+--------
+tests/test_storage_v3.py::test_v3_migration_idempotent PASSED            [100%]
+
+SUMMARY: 1 passed, 1 warning in 0.32s
+
+VERIFICATION:
+- ✓ First initialize() call succeeds
+- ✓ Second initialize() call on same database succeeds (no errors)
+- ✓ All three V3 tables exist after idempotent calls
+- ✓ Migration is fully idempotent (CREATE TABLE IF NOT EXISTS pattern)
+
+IDEMPOTENCY GUARANTEE:
+The V3 migration uses CREATE TABLE IF NOT EXISTS for all tables and
+CREATE INDEX IF NOT EXISTS for all indexes, ensuring that calling
+initialize() multiple times on the same database is safe and produces
+no errors or side effects.

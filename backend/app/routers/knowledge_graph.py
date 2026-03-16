@@ -47,6 +47,16 @@ def _map_node(row: dict) -> dict:
 
 
 def _map_edge(row: dict) -> dict:
+    import json as _json
+
+    metadata = None
+    raw_meta = row.get("metadata_json")
+    if raw_meta:
+        try:
+            metadata = _json.loads(raw_meta) if isinstance(raw_meta, str) else raw_meta
+        except (ValueError, TypeError):
+            metadata = None
+
     return {
         "id": row["id"],
         "textbook_id": row["textbook_id"],
@@ -55,6 +65,7 @@ def _map_edge(row: dict) -> dict:
         "relationship_type": row["relationship_type"],
         "confidence": row.get("confidence", 1.0),
         "reasoning": row.get("reasoning"),
+        "metadata": metadata,
         "created_at": row["created_at"],
     }
 

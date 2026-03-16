@@ -2,18 +2,18 @@ import { RELATIONSHIP_LABELS } from './edgeStyles'
 import type { RelationshipType } from '../../types/knowledgeGraph'
 
 const LEGEND_COLORS: Record<RelationshipType, string> = {
-  derives_from: '#e94560',
-  proves: '#e94560',
-  prerequisite_of: '#f5a623',
-  uses: '#888888',
-  generalizes: '#5b9cf6',
-  specializes: '#5b9cf6',
-  contradicts: '#ff4444',
-  defines: '#6dce9e',
-  equivalent_form: '#f5a623',
-  shared_variables: '#9c27b0',
-  contains: '#555555',
-}
+    derives_from: '#e94560',
+    proves: '#e94560',
+    prerequisite_of: '#f5a623',
+    uses: '#888888',
+    generalizes: '#5b9cf6',
+    specializes: '#5b9cf6',
+    contradicts: '#ff4444',
+    defines: '#6dce9e',
+    equivalent_form: '#f5a623',
+    variant_of: '#ab47bc',
+    contains: '#78909c',
+  }
 
 export function GraphLegend() {
   return (

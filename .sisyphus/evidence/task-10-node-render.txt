@@ -1,0 +1,37 @@
+TASK: Create custom React Flow node components for STEM knowledge graph
+DATE: 2026-03-16
+
+FILES CREATED:
+  frontend/src/components/graph/ChapterNode.tsx
+  frontend/src/components/graph/ConceptNode.tsx
+  frontend/src/components/graph/EquationNode.tsx
+  frontend/src/components/graph/nodeTypes.ts
+  frontend/src/components/graph/index.ts
+  frontend/src/components/graph/ChapterNode.test.tsx    (11 tests)
+  frontend/src/components/graph/ConceptNode.test.tsx    (14 tests)
+  frontend/src/components/graph/EquationNode.test.tsx   (10 tests)
+  frontend/src/components/graph/nodeTypes.test.ts       (8 tests)
+
+TDD APPROACH:
+  Tests written first, then implementations. All 43 tests pass on first run.
+
+TYPE DECISIONS:
+  Used Node<DataType, TypeName> wrapper (e.g. Node<ConceptNodeData, 'chapter'>)
+  because NodeProps<T extends NodeBase> requires T extends NodeBase/Node.
+  NodeProps<ConceptNodeData> directly would be a TS error.
+
+VERIFICATION:
+  npx tsc --noEmit → 0 errors
+  npx vitest run src/components/graph/ → 43/43 PASS
+
+  Test Files  4 passed (4)
+       Tests  43 passed (43)
+    Duration  5.64s
+
+DESIGN NOTES:
+  - All nodes use React.memo() for React Flow pan/zoom performance
+  - nodeTypes object defined at module level (not inside any component)
+  - CSS classes from graph.css: graph-node, graph-node--chapter/theorem/definition/equation/lemma/concept/example
+  - Handle components at top (target) and bottom (source) positions
+  - EquationNode renders InlineMath from react-katex when metadata.latex is present
+  - ConceptNode uses NODE_TYPE_CLASS lookup for type-specific CSS

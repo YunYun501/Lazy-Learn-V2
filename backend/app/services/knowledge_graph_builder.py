@@ -1,21 +1,24 @@
+import asyncio
 import json
 from datetime import datetime
 
+from app.models.knowledge_graph_models import NodeType
 from app.services.knowledge_graph_prompts import (
-    CONCEPT_EXTRACTION_PROMPT,
-    RELATIONSHIP_EXTRACTION_PROMPT,
-    SECTION_CONCEPT_PROMPT,
-    parse_concept_extraction_response,
+    CROSS_SECTION_RELATIONSHIP_PROMPT,
+    KEY_RESULT_EXTRACTION_PROMPT,
+    parse_key_result_response,
     parse_relationship_response,
-    parse_section_concept_response,
-)
-from app.services.latex_parser import (
-    EquationInfo,
-    build_variable_cooccurrence,
-    parse_equation,
 )
 from app.services.section_content_mapper import get_sections_with_content
 from app.services.storage import MetadataStore
+
+_VALID_NODE_TYPES = {e.value for e in NodeType}
+
+
+def _safe_node_type(raw: str) -> str:
+    """Clamp an LLM-provided node_type to a known enum value, defaulting to 'concept'."""
+    val = raw.strip().lower() if raw else "concept"
+    return val if val in _VALID_NODE_TYPES else "concept"
 
 
 class KnowledgeGraphBuilder:
@@ -36,7 +39,6 @@ class KnowledgeGraphBuilder:
                 )
                 return
             all_nodes: list[dict] = []
-            section_nodes: dict[str, str] = {}
             for chapter in chapters:
                 node_id = await self.store.create_concept_node(
                     textbook_id=textbook_id,
@@ -50,230 +52,204 @@ class KnowledgeGraphBuilder:
 
             await self.store.update_graph_job(job_id=job_id, progress_pct=0.3)
 
-            for index, chapter in enumerate(chapters):
-                desc = await self._load_chapter_description(
-                    textbook_id,
-                    chapter["chapter_number"],
-                    chapter_id=chapter["id"],
-                    chapter_title=chapter.get("title", ""),
-                )
-                if desc:
-                    section_nodes_from_desc = (
-                        await self._extract_concepts_from_description(
-                            textbook_id=textbook_id,
-                            chapter_id=chapter["id"],
-                            chapter_desc=desc,
-                        )
-                    )
-                    all_nodes.extend(section_nodes_from_desc)
-
-                await self.store.update_graph_job(
-                    job_id=job_id,
-                    processed_chapters=index + 1,
-                )
-
-            sections_by_chapter: list[dict] = []
+            sections_by_chapter = []
             total_sections = 0
             for chapter in chapters:
                 sections = await get_sections_with_content(self.store, chapter["id"])
                 sections_by_chapter.append({"chapter": chapter, "sections": sections})
                 total_sections += len(sections)
 
-            if total_sections == 0:
-                await self.store.update_graph_job(job_id=job_id, progress_pct=0.7)
-            else:
-                processed_sections = 0
-                for entry in sections_by_chapter:
-                    chapter = entry["chapter"]
-                    for section in entry["sections"]:
-                        section_node_id = await self.store.create_concept_node(
-                            textbook_id=textbook_id,
-                            title=section.get("title", "Unknown Section"),
-                            node_type="concept",
-                            level="section",
-                            source_chapter_id=chapter["id"],
-                            source_section_id=section["id"],
-                            source_page=section.get("page_start"),
+            semaphore = asyncio.Semaphore(3)
+            processed_sections = 0
+            concept_lock = asyncio.Lock()
+            pending_concepts: dict[str, str] = {}
+
+            async def process_section(chapter, section):
+                nonlocal processed_sections
+                async with semaphore:
+                    section_node_id = await self.store.create_concept_node(
+                        textbook_id=textbook_id,
+                        title=section.get("title", "Unknown Section"),
+                        node_type="concept",
+                        level="section",
+                        source_chapter_id=chapter["id"],
+                        source_section_id=section["id"],
+                        source_page=section.get("page_start"),
+                    )
+                    all_nodes.append(
+                        {"id": section_node_id, "title": section.get("title", "")}
+                    )
+
+                    if self.ai_router and hasattr(self.ai_router, "get_json_response"):
+                        content_entries = section.get("content_entries", [])
+                        text_entries = [
+                            e.get("content", "")
+                            for e in content_entries
+                            if e.get("content_type") == "text"
+                        ]
+                        equation_entries = [
+                            e.get("content", "")
+                            for e in content_entries
+                            if e.get("content_type") == "equation"
+                        ]
+
+                        prompt = KEY_RESULT_EXTRACTION_PROMPT.format(
+                            section_title=section.get("title", "Unknown Section"),
+                            section_path=section.get("section_path", ""),
+                            parent_concept=chapter.get("title", ""),
+                            section_text="\n".join(text_entries),
+                            equations_text="\n".join(equation_entries),
                         )
-                        section_nodes[section["id"]] = section_node_id
-                        all_nodes.append(
-                            {"id": section_node_id, "title": section.get("title", "")}
-                        )
 
-                        if self.ai_router and hasattr(
-                            self.ai_router, "get_json_response"
-                        ):
-                            content_entries = section.get("content_entries", [])
-                            text_entries = [
-                                entry.get("content", "")
-                                for entry in content_entries
-                                if entry.get("content_type") == "text"
-                            ]
-                            equation_entries = [
-                                entry.get("content", "")
-                                for entry in content_entries
-                                if entry.get("content_type") == "equation"
-                            ]
+                        try:
+                            raw = await self.ai_router.get_json_response(prompt)
+                            parsed = parse_key_result_response(raw)
+                        except Exception:
+                            parsed = {"concept_groups": [], "derivations": []}
 
-                            prompt = SECTION_CONCEPT_PROMPT.format(
-                                section_title=section.get("title", "Unknown Section"),
-                                section_path=section.get("section_path", ""),
-                                parent_concept=chapter.get("title", ""),
-                                section_text="\n".join(text_entries),
-                                equations_text="\n".join(equation_entries),
-                            )
+                        concept_ids = {}
+                        valid_types = {
+                            "variant_of",
+                            "derives_from",
+                            "equivalent_form",
+                            "generalizes",
+                            "specializes",
+                            "uses",
+                            "prerequisite_of",
+                        }
 
-                            try:
-                                raw = await self.ai_router.get_json_response(prompt)
-                                parsed = parse_section_concept_response(raw)
-                            except Exception:
-                                parsed = {"concepts": [], "section_relationships": []}
-
-                            concept_ids: dict[str, str] = {}
-                            for concept in parsed.get("concepts", []):
-                                title = concept.get("title", "Unknown")
-                                existing_id = await self._deduplicate_concept(
-                                    textbook_id=textbook_id,
-                                    title=title,
-                                )
-                                if existing_id:
-                                    node_id = existing_id
+                        for group in parsed.get("concept_groups", []):
+                            group_title = group.get("name", "Unknown")
+                            async with concept_lock:
+                                if group_title in pending_concepts:
+                                    group_node_id = pending_concepts[group_title]
                                 else:
-                                    node_id = await self.store.create_concept_node(
-                                        textbook_id=textbook_id,
-                                        title=title,
-                                        node_type=concept.get("node_type", "concept"),
-                                        level="subsection",
-                                        description=concept.get("description"),
-                                        source_chapter_id=chapter["id"],
-                                        source_section_id=section["id"],
-                                        metadata_json=json.dumps(
-                                            {
-                                                "aliases": concept.get("aliases", []),
-                                                "prerequisites": concept.get(
-                                                    "prerequisites", []
-                                                ),
-                                            }
-                                        ),
+                                    existing_id = await self._deduplicate_concept(
+                                        textbook_id, group_title
                                     )
-                                    all_nodes.append({"id": node_id, "title": title})
+                                    if existing_id:
+                                        group_node_id = existing_id
+                                    else:
+                                        group_node_id = (
+                                            await self.store.create_concept_node(
+                                                textbook_id=textbook_id,
+                                                title=group_title,
+                                                node_type=_safe_node_type(
+                                                    group.get("node_type", "concept")
+                                                ),
+                                                level="subsection",
+                                                description=group.get("description"),
+                                                source_chapter_id=chapter["id"],
+                                                source_section_id=section["id"],
+                                                metadata_json=json.dumps({}),
+                                            )
+                                        )
+                                        all_nodes.append(
+                                            {"id": group_node_id, "title": group_title}
+                                        )
+                                    pending_concepts[group_title] = group_node_id
+                            concept_ids[group_title] = group_node_id
 
-                                concept_ids[title] = node_id
+                            for member in group.get("members", []):
+                                member_title = member.get("title", "Unknown")
+                                async with concept_lock:
+                                    if member_title in pending_concepts:
+                                        member_node_id = pending_concepts[member_title]
+                                    else:
+                                        existing_id = await self._deduplicate_concept(
+                                            textbook_id, member_title
+                                        )
+                                        if existing_id:
+                                            member_node_id = existing_id
+                                        else:
+                                            member_node_id = await self.store.create_concept_node(
+                                                textbook_id=textbook_id,
+                                                title=member_title,
+                                                node_type=_safe_node_type(
+                                                    member.get("node_type", "concept")
+                                                ),
+                                                level="subsection",
+                                                description=member.get("description"),
+                                                source_chapter_id=chapter["id"],
+                                                source_section_id=section["id"],
+                                                metadata_json=json.dumps(
+                                                    {
+                                                        "defining_equation": member.get(
+                                                            "defining_equation", ""
+                                                        ),
+                                                    }
+                                                ),
+                                            )
+                                            all_nodes.append(
+                                                {
+                                                    "id": member_node_id,
+                                                    "title": member_title,
+                                                }
+                                            )
+                                        pending_concepts[member_title] = member_node_id
+                                concept_ids[member_title] = member_node_id
 
-                            for rel in parsed.get("section_relationships", []):
+                                await self.store.create_concept_edge(
+                                    textbook_id=textbook_id,
+                                    source_node_id=group_node_id,
+                                    target_node_id=member_node_id,
+                                    relationship_type="contains",
+                                )
+
+                            for rel in group.get("intra_relationships", []):
                                 source_id = concept_ids.get(rel.get("source", ""))
                                 target_id = concept_ids.get(rel.get("target", ""))
                                 if not source_id or not target_id:
                                     continue
+                                rel_type = rel.get("relationship_type", "variant_of")
+                                if rel_type not in valid_types:
+                                    rel_type = "variant_of"
                                 await self.store.create_concept_edge(
                                     textbook_id=textbook_id,
                                     source_node_id=source_id,
                                     target_node_id=target_id,
-                                    relationship_type=rel.get(
-                                        "relationship_type", "uses"
-                                    ),
+                                    relationship_type=rel_type,
                                     reasoning=rel.get("reasoning"),
                                 )
 
-                        processed_sections += 1
-                        progress = (
-                            0.3 + (processed_sections / max(total_sections, 1)) * 0.4
-                        )
-                        await self.store.update_graph_job(
-                            job_id=job_id,
-                            progress_pct=round(progress, 2),
-                        )
-
-                await self.store.update_graph_job(job_id=job_id, progress_pct=0.7)
-
-            if total_sections == 0:
-                await self.store.update_graph_job(job_id=job_id, progress_pct=0.9)
-            else:
-                processed_sections = 0
-                for entry in sections_by_chapter:
-                    chapter = entry["chapter"]
-                    for section in entry["sections"]:
-                        section_node_id = section_nodes.get(section["id"])
-                        if not section_node_id:
-                            processed_sections += 1
-                            continue
-
-                        content_entries = section.get("content_entries", [])
-                        equations = [
-                            entry
-                            for entry in content_entries
-                            if entry.get("content_type") == "equation"
-                        ]
-
-                        parsed_equations: list[tuple[str, EquationInfo]] = []
-                        equation_lookup: dict[str, EquationInfo] = {}
-                        for entry in equations:
-                            raw_equation = entry.get("content", "")
-                            info = parse_equation(raw_equation)
-                            if not info.is_parseable:
+                        for deriv in parsed.get("derivations", []):
+                            source_id = concept_ids.get(deriv.get("source", ""))
+                            target_id = concept_ids.get(deriv.get("target", ""))
+                            if not source_id or not target_id:
                                 continue
-                            equation_node_id = await self.store.create_concept_node(
+                            await self.store.create_concept_edge(
                                 textbook_id=textbook_id,
-                                title="Equation",
-                                node_type="equation",
-                                level="equation",
-                                source_chapter_id=chapter["id"],
-                                source_section_id=section["id"],
-                                source_page=entry.get("page_number"),
+                                source_node_id=source_id,
+                                target_node_id=target_id,
+                                relationship_type="derives_from",
+                                reasoning=deriv.get("description"),
                                 metadata_json=json.dumps(
                                     {
-                                        "variables": sorted(list(info.variables)),
-                                        "raw_latex": info.raw_latex,
+                                        "derivation_steps": deriv.get(
+                                            "derivation_steps", []
+                                        ),
                                     }
                                 ),
                             )
-                            all_nodes.append(
-                                {"id": equation_node_id, "title": "Equation"}
-                            )
-                            await self.store.create_concept_edge(
-                                textbook_id=textbook_id,
-                                source_node_id=section_node_id,
-                                target_node_id=equation_node_id,
-                                relationship_type="contains",
-                            )
-                            parsed_equations.append((equation_node_id, info))
-                            equation_lookup[equation_node_id] = info
 
-                        if parsed_equations:
-                            cooccurrences = build_variable_cooccurrence(
-                                parsed_equations
-                            )
-                            for eq_a, eq_b, shared_count in cooccurrences:
-                                info_a = equation_lookup.get(eq_a)
-                                info_b = equation_lookup.get(eq_b)
-                                if not info_a or not info_b:
-                                    continue
-                                shared_vars = sorted(
-                                    info_a.variables.intersection(info_b.variables)
-                                )
-                                max_vars = max(
-                                    len(info_a.variables), len(info_b.variables), 1
-                                )
-                                confidence = shared_count / max_vars
-                                await self.store.create_concept_edge(
-                                    textbook_id=textbook_id,
-                                    source_node_id=eq_a,
-                                    target_node_id=eq_b,
-                                    relationship_type="shared_variables",
-                                    confidence=confidence,
-                                    reasoning=f"Shared variables: {shared_vars}",
-                                )
+                    processed_sections += 1
+                    progress = (
+                        0.3 + (processed_sections / max(total_sections, 1)) * 0.55
+                    )
+                    await self.store.update_graph_job(
+                        job_id=job_id, progress_pct=round(progress, 2)
+                    )
 
-                        processed_sections += 1
-                        progress = (
-                            0.7 + (processed_sections / max(total_sections, 1)) * 0.2
-                        )
-                        await self.store.update_graph_job(
-                            job_id=job_id,
-                            progress_pct=round(progress, 2),
-                        )
+            tasks = []
+            for entry in sections_by_chapter:
+                chapter = entry["chapter"]
+                for section in entry["sections"]:
+                    tasks.append(process_section(chapter, section))
 
-                await self.store.update_graph_job(job_id=job_id, progress_pct=0.9)
+            if tasks:
+                await asyncio.gather(*tasks)
+
+            await self.store.update_graph_job(job_id=job_id, progress_pct=0.85)
 
             if all_nodes and self.ai_router:
                 await self._extract_relationships(
@@ -294,103 +270,6 @@ class KnowledgeGraphBuilder:
             )
             raise
 
-    async def _load_chapter_description(
-        self,
-        textbook_id: str,
-        chapter_number: str,
-        chapter_id: str = "",
-        chapter_title: str = "",
-    ):
-        import aiosqlite
-
-        async with aiosqlite.connect(self.store.db_path) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT content_type, content FROM extracted_content WHERE chapter_id = ? ORDER BY rowid",
-                (chapter_id,),
-            ) as cursor:
-                rows = await cursor.fetchall()
-
-        if not rows:
-            return None
-
-        text_parts = []
-        has_math = False
-        for row in rows:
-            r = dict(row)
-            content = r.get("content") or ""
-            if r["content_type"] == "text":
-                text_parts.append(content[:500])
-            elif r["content_type"] == "equation":
-                has_math = True
-                text_parts.append(content[:200])
-
-        combined = "\n".join(text_parts)[:3000]
-
-        return {
-            "chapter_title": chapter_title or f"Chapter {chapter_number}",
-            "chapter_number": chapter_number,
-            "raw": combined,
-            "key_concepts": [],
-            "prerequisites": [],
-            "mathematical_content": has_math,
-        }
-
-    async def _extract_concepts_from_description(
-        self, textbook_id: str, chapter_id: str, chapter_desc: dict
-    ) -> list[dict]:
-        if not self.ai_router or not hasattr(self.ai_router, "get_json_response"):
-            return []
-
-        key_concepts_str = (
-            ", ".join(
-                c.get("name", "") for c in chapter_desc.get("key_concepts", [])
-            ).strip()
-            or "None"
-        )
-        prerequisites_str = ", ".join(chapter_desc.get("prerequisites", [])).strip()
-        if not prerequisites_str:
-            prerequisites_str = "None"
-
-        prompt = CONCEPT_EXTRACTION_PROMPT.format(
-            chapter_title=chapter_desc.get("chapter_title", "Unknown"),
-            chapter_number=chapter_desc.get("chapter_number", "?"),
-            key_concepts=key_concepts_str,
-            prerequisites=prerequisites_str,
-            mathematical_content=chapter_desc.get("mathematical_content", False),
-            chapter_content=chapter_desc.get("raw", "No content available")[:2000],
-        )
-
-        try:
-            raw = await self.ai_router.get_json_response(prompt)
-            if isinstance(raw, dict):
-                concepts = raw.get("concepts", [])
-            elif isinstance(raw, list):
-                concepts = raw
-            elif isinstance(raw, str):
-                concepts = parse_concept_extraction_response(raw)
-            else:
-                concepts = []
-            if not isinstance(concepts, list):
-                concepts = []
-        except Exception:
-            return []
-
-        nodes: list[dict] = []
-        for concept in concepts:
-            title = concept.get("title", "Unknown")
-            node_id = await self.store.create_concept_node(
-                textbook_id=textbook_id,
-                title=title,
-                node_type=concept.get("node_type", "concept"),
-                level="section",
-                description=concept.get("description"),
-                source_chapter_id=chapter_id,
-                metadata_json=json.dumps({"aliases": concept.get("aliases", [])}),
-            )
-            nodes.append({"id": node_id, "title": title})
-        return nodes
-
     async def _extract_relationships(self, textbook_id: str, nodes: list[dict]) -> None:
         if not self.ai_router or not hasattr(self.ai_router, "get_json_response"):
             return
@@ -400,7 +279,7 @@ class KnowledgeGraphBuilder:
         concepts_str = "\n".join(
             f"{index + 1}. {node['title']}" for index, node in enumerate(nodes[:50])
         )
-        prompt = RELATIONSHIP_EXTRACTION_PROMPT.format(
+        prompt = CROSS_SECTION_RELATIONSHIP_PROMPT.format(
             textbook_title=f"Textbook {textbook_id}",
             concepts_list=concepts_str,
         )

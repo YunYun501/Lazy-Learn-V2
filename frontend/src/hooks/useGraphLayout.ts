@@ -15,7 +15,7 @@ export function computeLayout(nodes: Node[], edges: Edge[]): { nodes: Node[]; ed
 
   const g = new dagre.graphlib.Graph()
   g.setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir: 'TB', nodesep: 80, ranksep: 120 })
+  g.setGraph({ rankdir: 'TB', nodesep: 180, ranksep: 220 })
 
   nodes.forEach((node) => {
     const type = node.type ?? 'default'

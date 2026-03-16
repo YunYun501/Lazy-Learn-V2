@@ -167,6 +167,9 @@ class MetadataStore:
             # Call v3 migration
             await self._migrate_v3(db)
 
+            # Call v4 migration
+            await self._migrate_v4(db)
+
             # Add course_id column to textbooks if missing (idempotent migration)
             try:
                 await db.execute("ALTER TABLE textbooks ADD COLUMN course_id TEXT")
@@ -258,6 +261,25 @@ class MetadataStore:
             await db.commit()
         except Exception:
             pass  # Column already exists
+
+    async def _migrate_v4(self, db):
+        """Apply v4 schema migrations: add metadata_json to concept_edges."""
+        try:
+            cursor = await db.execute("PRAGMA table_info(concept_edges)")
+            columns = await cursor.fetchall()
+            column_names = [col[1] for col in columns]
+
+            if "metadata_json" not in column_names:
+                await db.execute(
+                    "ALTER TABLE concept_edges ADD COLUMN metadata_json TEXT"
+                )
+                await db.commit()
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.info("V4 migration: added metadata_json to concept_edges")
+        except Exception:
+            pass
 
     # --- Textbooks ---
 
@@ -944,13 +966,14 @@ class MetadataStore:
         relationship_type: str,
         confidence: float = 1.0,
         reasoning: str | None = None,
+        metadata_json: str | None = None,
     ) -> str:
         """Create a concept edge. Returns the edge id."""
         edge_id = str(uuid.uuid4())
         now = datetime.utcnow().isoformat()
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
-                "INSERT INTO concept_edges (id, textbook_id, source_node_id, target_node_id, relationship_type, confidence, reasoning, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO concept_edges (id, textbook_id, source_node_id, target_node_id, relationship_type, confidence, reasoning, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     edge_id,
                     textbook_id,
@@ -959,6 +982,7 @@ class MetadataStore:
                     relationship_type,
                     confidence,
                     reasoning,
+                    metadata_json,
                     now,
                 ),
             )

@@ -1,107 +1,217 @@
 import json
 from app.services.knowledge_graph_prompts import (
-    CONCEPT_EXTRACTION_PROMPT,
-    RELATIONSHIP_EXTRACTION_PROMPT,
-    SECTION_CONCEPT_PROMPT,
-    parse_concept_extraction_response,
+    CROSS_SECTION_RELATIONSHIP_PROMPT,
+    KEY_RESULT_EXTRACTION_PROMPT,
+    parse_key_result_response,
     parse_relationship_response,
-    parse_section_concept_response,
     _strip_code_blocks,
 )
 
 
 class TestPromptRendering:
-    def test_concept_prompt_renders_with_data(self):
-        rendered = CONCEPT_EXTRACTION_PROMPT.format(
-            chapter_title="The Z-Transform",
-            chapter_number="3",
-            key_concepts="Causality, Stability, Region of Convergence",
-            prerequisites="Fourier Transform, Complex Numbers",
-            mathematical_content=True,
-            chapter_content="The Z-transform converts a discrete-time signal into a complex frequency-domain representation.",
+    def test_key_result_prompt_renders_with_data(self):
+        rendered = KEY_RESULT_EXTRACTION_PROMPT.format(
+            section_title="Fatigue Criteria",
+            section_path="CH7/7.5",
+            parent_concept="Shafts",
+            section_text="The Soderberg line relates alternating and mean stress.",
+            equations_text="\\frac{{S_a}}{{S_e}} + \\frac{{S_m}}{{S_y}} = 1",
         )
-        assert "The Z-Transform" in rendered
-        assert "Chapter Number: 3" in rendered
-        assert "Causality, Stability, Region of Convergence" in rendered
-        assert "Fourier Transform, Complex Numbers" in rendered
-        assert "True" in rendered
-        assert "node_type" in rendered
-        assert "theorem|definition|equation|lemma|concept|example" in rendered
+        assert "Fatigue Criteria" in rendered
+        assert "CH7/7.5" in rendered
+        assert "Shafts" in rendered
+        assert "concept_groups" in rendered
+        assert "derivations" in rendered
+        assert "variant_of" in rendered
 
-    def test_relationship_prompt_renders_with_data(self):
-        concepts_list = "1. Z-Transform\n2. Fourier Transform\n3. Causality"
-        rendered = RELATIONSHIP_EXTRACTION_PROMPT.format(
-            textbook_title="Digital Signal Processing",
+    def test_cross_section_prompt_renders_with_data(self):
+        concepts_list = "1. Soderberg Line\n2. Goodman Line\n3. Gerber Line"
+        rendered = CROSS_SECTION_RELATIONSHIP_PROMPT.format(
+            textbook_title="Mechanical Design",
             concepts_list=concepts_list,
         )
-        assert "Digital Signal Processing" in rendered
-        assert "Z-Transform" in rendered
+        assert "Mechanical Design" in rendered
+        assert "Soderberg Line" in rendered
         assert "derives_from" in rendered
         assert "prerequisite_of" in rendered
+        assert "variant_of" in rendered
+        assert "contains" in rendered
         assert "confidence" in rendered
 
 
-class TestConceptExtractionParser:
-    def test_parse_concept_response_valid_json(self):
-        valid_json = json.dumps(
-            [
+class TestKeyResultParser:
+    def test_parse_concept_groups_valid_dict(self):
+        valid = {
+            "concept_groups": [
                 {
-                    "title": "Z-Transform",
-                    "node_type": "definition",
-                    "description": "A mathematical transform for discrete-time signals.",
-                    "aliases": ["ZT", "bilateral Z-transform"],
-                },
-                {
-                    "title": "Causality",
+                    "name": "Fatigue Criteria",
+                    "description": "Alternative failure criteria",
                     "node_type": "concept",
-                    "description": "A system property where output depends only on past inputs.",
-                    "aliases": [],
-                },
-            ]
+                    "members": [
+                        {
+                            "title": "Soderberg Line",
+                            "node_type": "formula",
+                            "defining_equation": "Sa/Se + Sm/Sy = 1",
+                            "description": "Conservative criterion",
+                        }
+                    ],
+                    "intra_relationships": [],
+                }
+            ],
+            "derivations": [],
+        }
+        result = parse_key_result_response(valid)
+        assert len(result["concept_groups"]) == 1
+        assert result["concept_groups"][0]["name"] == "Fatigue Criteria"
+        assert len(result["concept_groups"][0]["members"]) == 1
+        assert result["concept_groups"][0]["members"][0]["title"] == "Soderberg Line"
+
+    def test_parse_concept_groups_valid_json_string(self):
+        valid_json = json.dumps(
+            {
+                "concept_groups": [
+                    {
+                        "name": "Test Group",
+                        "description": "desc",
+                        "node_type": "concept",
+                        "members": [],
+                        "intra_relationships": [],
+                    }
+                ],
+                "derivations": [],
+            }
         )
-        result = parse_concept_extraction_response(valid_json)
-        assert len(result) == 2
-        assert result[0]["title"] == "Z-Transform"
-        assert result[0]["node_type"] == "definition"
-        assert result[1]["title"] == "Causality"
+        result = parse_key_result_response(valid_json)
+        assert len(result["concept_groups"]) == 1
+        assert result["concept_groups"][0]["name"] == "Test Group"
 
-    def test_parse_concept_response_markdown_wrapped(self):
-        markdown_json = """```json
-[
-  {
-    "title": "Stability",
-    "node_type": "theorem",
-    "description": "A system is stable if bounded inputs produce bounded outputs.",
-    "aliases": ["BIBO stability"]
-  }
-]
+    def test_parse_legacy_key_results_fallback(self):
+        legacy = {
+            "key_results": [
+                {
+                    "title": "Critical Speed",
+                    "node_type": "formula",
+                    "defining_equation": "omega_c",
+                    "description": "Natural frequency",
+                }
+            ],
+            "derivations": [],
+        }
+        result = parse_key_result_response(legacy)
+        assert len(result["concept_groups"]) == 1
+        assert len(result["concept_groups"][0]["members"]) == 1
+        assert result["concept_groups"][0]["members"][0]["title"] == "Critical Speed"
+
+    def test_parse_invalid_json_returns_empty(self):
+        result = parse_key_result_response("this is not valid json")
+        assert result == {"concept_groups": [], "derivations": []}
+
+    def test_parse_empty_string_returns_empty(self):
+        result = parse_key_result_response("")
+        assert result == {"concept_groups": [], "derivations": []}
+
+    def test_parse_malformed_json_returns_empty(self):
+        result = parse_key_result_response('{"concept_groups": [incomplete')
+        assert result == {"concept_groups": [], "derivations": []}
+
+    def test_parse_markdown_wrapped_json(self):
+        markdown = """```json
+{
+  "concept_groups": [
+    {
+      "name": "Wrapped",
+      "description": "test",
+      "node_type": "concept",
+      "members": [],
+      "intra_relationships": []
+    }
+  ],
+  "derivations": []
+}
 ```"""
-        result = parse_concept_extraction_response(markdown_json)
-        assert len(result) == 1
-        assert result[0]["title"] == "Stability"
-        assert result[0]["node_type"] == "theorem"
+        result = parse_key_result_response(markdown)
+        assert len(result["concept_groups"]) == 1
+        assert result["concept_groups"][0]["name"] == "Wrapped"
 
-    def test_parse_concept_response_invalid_json(self):
-        result = parse_concept_extraction_response("this is not valid json at all")
-        assert result == []
-        assert isinstance(result, list)
+    def test_parse_with_derivations(self):
+        data = {
+            "concept_groups": [
+                {
+                    "name": "Group",
+                    "description": "desc",
+                    "node_type": "concept",
+                    "members": [
+                        {
+                            "title": "A",
+                            "node_type": "method",
+                            "defining_equation": "",
+                            "description": "",
+                        },
+                        {
+                            "title": "B",
+                            "node_type": "formula",
+                            "defining_equation": "",
+                            "description": "",
+                        },
+                    ],
+                    "intra_relationships": [],
+                }
+            ],
+            "derivations": [
+                {
+                    "source": "A",
+                    "target": "B",
+                    "description": "A leads to B",
+                    "derivation_steps": ["step 1", "step 2"],
+                }
+            ],
+        }
+        result = parse_key_result_response(data)
+        assert len(result["derivations"]) == 1
+        assert result["derivations"][0]["source"] == "A"
+        assert len(result["derivations"][0]["derivation_steps"]) == 2
 
-    def test_parse_concept_response_malformed_json(self):
-        result = parse_concept_extraction_response('{"title": "incomplete')
-        assert result == []
+    def test_parse_with_intra_relationships(self):
+        data = {
+            "concept_groups": [
+                {
+                    "name": "Criteria",
+                    "description": "desc",
+                    "node_type": "concept",
+                    "members": [
+                        {
+                            "title": "Soderberg",
+                            "node_type": "formula",
+                            "defining_equation": "",
+                            "description": "",
+                        },
+                        {
+                            "title": "Goodman",
+                            "node_type": "formula",
+                            "defining_equation": "",
+                            "description": "",
+                        },
+                    ],
+                    "intra_relationships": [
+                        {
+                            "source": "Soderberg",
+                            "target": "Goodman",
+                            "relationship_type": "variant_of",
+                            "reasoning": "Alternative criterion",
+                        }
+                    ],
+                }
+            ],
+            "derivations": [],
+        }
+        result = parse_key_result_response(data)
+        rels = result["concept_groups"][0]["intra_relationships"]
+        assert len(rels) == 1
+        assert rels[0]["relationship_type"] == "variant_of"
 
-    def test_parse_concept_response_empty_string(self):
-        result = parse_concept_extraction_response("")
-        assert result == []
 
-    def test_parse_concept_response_not_array(self):
-        not_array = json.dumps({"title": "Single object, not array"})
-        result = parse_concept_extraction_response(not_array)
-        assert result == []
-
-
-class TestRelationshipExtractionParser:
-    def test_parse_relationship_response_valid_json(self):
+class TestRelationshipParser:
+    def test_parse_valid_json_list(self):
         valid_json = json.dumps(
             [
                 {
@@ -118,131 +228,45 @@ class TestRelationshipExtractionParser:
         assert result[0]["source"] == "Z-Transform"
         assert result[0]["relationship_type"] == "derives_from"
 
-    def test_parse_relationship_response_invalid_json(self):
+    def test_parse_dict_with_relationships_key(self):
+        valid_json = json.dumps(
+            {
+                "relationships": [
+                    {
+                        "source": "A",
+                        "target": "B",
+                        "relationship_type": "uses",
+                        "confidence": 0.8,
+                        "reasoning": "A uses B",
+                    }
+                ]
+            }
+        )
+        result = parse_relationship_response(valid_json)
+        assert len(result) == 1
+        assert result[0]["source"] == "A"
+
+    def test_parse_invalid_json_returns_empty(self):
         result = parse_relationship_response("not json")
         assert result == []
 
-    def test_parse_relationship_response_empty_array(self):
+    def test_parse_empty_array(self):
         result = parse_relationship_response(json.dumps([]))
         assert result == []
 
 
 class TestStripCodeBlocks:
-    def test_strip_code_blocks_json_fence(self):
+    def test_strip_json_fence(self):
         text = '```json\n{"key": "value"}\n```'
         result = _strip_code_blocks(text)
         assert result == '{"key": "value"}'
 
-    def test_strip_code_blocks_plain_fence(self):
+    def test_strip_plain_fence(self):
         text = "```\n[1, 2, 3]\n```"
         result = _strip_code_blocks(text)
         assert result == "[1, 2, 3]"
 
-    def test_strip_code_blocks_no_fence(self):
+    def test_no_fence_unchanged(self):
         text = '{"key": "value"}'
         result = _strip_code_blocks(text)
         assert result == '{"key": "value"}'
-
-
-class TestSectionConceptPrompt:
-    def test_section_prompt_renders(self):
-        rendered = SECTION_CONCEPT_PROMPT.format(
-            section_title="Critical Speeds",
-            section_path="Chapter 5 / Section 3",
-            parent_concept="Rotating Machinery",
-            section_text="Critical speeds are the natural frequencies at which a rotating shaft resonates.",
-            equations_text="ωn = √(k/m), where k is stiffness and m is mass",
-        )
-        assert "Critical Speeds" in rendered
-        assert "Chapter 5 / Section 3" in rendered
-        assert "Rotating Machinery" in rendered
-        assert "node_type" in rendered
-        assert "section_relationships" in rendered
-        assert "derives_from|proves|prerequisite_of" in rendered
-
-
-class TestSectionConceptParser:
-    def test_parse_section_response_valid_dict(self):
-        valid_dict = {
-            "concepts": [
-                {
-                    "title": "Critical Speed",
-                    "node_type": "definition",
-                    "description": "The rotational speed at which resonance occurs.",
-                    "aliases": ["Natural frequency"],
-                    "prerequisites": ["Resonance", "Rotating Machinery"],
-                }
-            ],
-            "section_relationships": [
-                {
-                    "source": "Critical Speed",
-                    "target": "Resonance",
-                    "relationship_type": "derives_from",
-                    "reasoning": "Critical speed is derived from resonance theory.",
-                }
-            ],
-        }
-        result = parse_section_concept_response(valid_dict)
-        assert len(result["concepts"]) == 1
-        assert result["concepts"][0]["title"] == "Critical Speed"
-        assert len(result["section_relationships"]) == 1
-        assert result["section_relationships"][0]["source"] == "Critical Speed"
-
-    def test_parse_section_response_valid_json_string(self):
-        valid_json = json.dumps(
-            {
-                "concepts": [
-                    {
-                        "title": "Damping",
-                        "node_type": "concept",
-                        "description": "Energy dissipation in a system.",
-                        "aliases": [],
-                        "prerequisites": [],
-                    }
-                ],
-                "section_relationships": [],
-            }
-        )
-        result = parse_section_concept_response(valid_json)
-        assert len(result["concepts"]) == 1
-        assert result["concepts"][0]["title"] == "Damping"
-        assert result["section_relationships"] == []
-
-    def test_parse_section_response_invalid(self):
-        result = parse_section_concept_response("this is garbage")
-        assert result == {"concepts": [], "section_relationships": []}
-        assert isinstance(result, dict)
-
-    def test_parse_section_response_partial(self):
-        partial_dict = {"concepts": [{"title": "Test", "node_type": "definition"}]}
-        result = parse_section_concept_response(partial_dict)
-        assert len(result["concepts"]) == 1
-        assert result["section_relationships"] == []
-
-    def test_parse_section_response_markdown_wrapped(self):
-        markdown_json = """```json
-{
-  "concepts": [
-    {
-      "title": "Whirl",
-      "node_type": "definition",
-      "description": "Circular motion of the shaft centerline.",
-      "aliases": ["Precession"],
-      "prerequisites": ["Rotation"]
-    }
-  ],
-  "section_relationships": []
-}
-```"""
-        result = parse_section_concept_response(markdown_json)
-        assert len(result["concepts"]) == 1
-        assert result["concepts"][0]["title"] == "Whirl"
-        assert result["section_relationships"] == []
-
-    def test_parse_section_response_empty_dict(self):
-        result = parse_section_concept_response({})
-        assert result == {"concepts": [], "section_relationships": []}
-
-    def test_parse_section_response_malformed_json(self):
-        result = parse_section_concept_response('{"concepts": [incomplete')
-        assert result == {"concepts": [], "section_relationships": []}

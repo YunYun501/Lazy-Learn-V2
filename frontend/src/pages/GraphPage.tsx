@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ReactFlow, ReactFlowProvider, MiniMap, Controls, Background } from '@xyflow/react'
+import {
+  ReactFlow, ReactFlowProvider, MiniMap, Controls, Background,
+  applyNodeChanges,
+} from '@xyflow/react'
+import type { Node, NodeChange, NodeMouseHandler, EdgeMouseHandler } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import '../styles/graph.css'
 import { nodeTypes } from '../components/graph/nodeTypes'
@@ -8,13 +12,15 @@ import { useKnowledgeGraph } from '../hooks/useKnowledgeGraph'
 import { PixelButton } from '../components/pixel/PixelButton'
 import { GraphErrorBoundary } from '../components/graph/GraphErrorBoundary'
 import { deleteGraph, buildGraph } from '../api/knowledgeGraph'
-import type { NodeMouseHandler } from '@xyflow/react'
+import { ConceptDetailPanel } from '../components/graph/ConceptDetailPanel'
+import { DerivationPanel } from '../components/graph/DerivationPanel'
 
 function GraphPageInner({ textbookId }: { textbookId: string }) {
   const navigate = useNavigate()
   const [isRegenerating, setIsRegenerating] = useState(false)
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const {
-    nodes,
+    nodes: layoutNodes,
     edges,
     isLoading,
     error,
@@ -23,13 +29,33 @@ function GraphPageInner({ textbookId }: { textbookId: string }) {
     progressPct,
     processedChapters,
     totalChapters,
+    selectedNodeId,
     setSelectedNodeId,
     reload,
   } = useKnowledgeGraph(textbookId)
 
+  const [nodes, setNodes] = useState<Node[]>([])
+
+  useEffect(() => {
+    setNodes(layoutNodes)
+  }, [layoutNodes])
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    [],
+  )
+
   const handleNodeClick: NodeMouseHandler = (_, node) => {
     setSelectedNodeId(node.id)
+    setSelectedEdgeId(null)
   }
+
+  const handleEdgeClick: EdgeMouseHandler = (_, edge) => {
+    setSelectedEdgeId(edge.id)
+    setSelectedNodeId(null)
+  }
+
+  const selectedEdge = selectedEdgeId ? (edges.find(e => e.id === selectedEdgeId) ?? null) : null
 
   const handleRegenerate = async () => {
     setIsRegenerating(true)
@@ -126,13 +152,25 @@ function GraphPageInner({ textbookId }: { textbookId: string }) {
           {isRegenerating ? 'Regenerating...' : 'Regenerate'}
         </PixelButton>
       </div>
-      <GraphErrorBoundary>
+      <GraphErrorBoundary fallback={
+        <div className="graph-progress">
+          <div>Graph rendering failed.</div>
+          <PixelButton variant="secondary" onClick={() => navigate('/')}>
+            ← Back to Bookshelf
+          </PixelButton>
+          <PixelButton variant="primary" onClick={handleRegenerate}>
+            {isRegenerating ? 'Regenerating...' : 'Regenerate'}
+          </PixelButton>
+        </div>
+      }>
         <div className="graph-page__canvas">
           <ReactFlow
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
             onNodeClick={handleNodeClick}
+            onEdgeClick={handleEdgeClick}
             nodesConnectable={false}
             onlyRenderVisibleElements={true}
             fitView
@@ -143,6 +181,17 @@ function GraphPageInner({ textbookId }: { textbookId: string }) {
             <Controls />
             <Background />
           </ReactFlow>
+          <ConceptDetailPanel
+            textbookId={textbookId}
+            nodeId={selectedNodeId}
+            nodes={nodes}
+            onClose={() => setSelectedNodeId(null)}
+          />
+          <DerivationPanel
+            edge={selectedEdge}
+            nodes={nodes}
+            onClose={() => setSelectedEdgeId(null)}
+          />
         </div>
       </GraphErrorBoundary>
     </div>

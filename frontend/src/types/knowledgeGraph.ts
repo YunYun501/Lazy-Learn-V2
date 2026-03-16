@@ -1,6 +1,10 @@
 // Union types (matching backend enums)
-export type NodeType = 'theorem' | 'definition' | 'equation' | 'lemma' | 'concept' | 'example'
-export type NodeLevel = 'chapter' | 'section' | 'subsection' | 'equation'
+export type NodeType =
+  | 'theorem' | 'definition' | 'equation' | 'lemma' | 'corollary' | 'axiom' | 'proof' | 'identity' | 'formula'
+  | 'law' | 'principle' | 'theory' | 'hypothesis' | 'observation' | 'constant' | 'property'
+  | 'method' | 'technique' | 'algorithm' | 'procedure' | 'criterion' | 'model' | 'approximation' | 'rule' | 'condition' | 'relation'
+  | 'concept' | 'result' | 'example'
+export type NodeLevel = 'chapter' | 'section' | 'subsection'
 export type RelationshipType =
   | 'derives_from'
   | 'proves'
@@ -11,7 +15,7 @@ export type RelationshipType =
   | 'contradicts'
   | 'defines'
   | 'equivalent_form'
-  | 'shared_variables'
+  | 'variant_of'
   | 'contains'
 export type GraphJobStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
@@ -38,6 +42,7 @@ export interface ConceptEdge {
   relationshipType: RelationshipType
   confidence: number
   reasoning?: string
+  metadata?: Record<string, unknown>
   createdAt: string
 }
 
@@ -80,12 +85,10 @@ export interface ConceptNodeData {
 
 // Type guard functions
 const NODE_TYPES: NodeType[] = [
-  'theorem',
-  'definition',
-  'equation',
-  'lemma',
-  'concept',
-  'example',
+  'theorem', 'definition', 'equation', 'lemma', 'corollary', 'axiom', 'proof', 'identity', 'formula',
+  'law', 'principle', 'theory', 'hypothesis', 'observation', 'constant', 'property',
+  'method', 'technique', 'algorithm', 'procedure', 'criterion', 'model', 'approximation', 'rule', 'condition', 'relation',
+  'concept', 'result', 'example',
 ]
 
 export function isValidNodeType(value: string): value is NodeType {
@@ -96,7 +99,6 @@ const NODE_LEVELS: NodeLevel[] = [
   'chapter',
   'section',
   'subsection',
-  'equation',
 ]
 
 export function isValidNodeLevel(value: string): value is NodeLevel {
@@ -113,7 +115,7 @@ const RELATIONSHIP_TYPES: RelationshipType[] = [
   'contradicts',
   'defines',
   'equivalent_form',
-  'shared_variables',
+  'variant_of',
   'contains',
 ]
 

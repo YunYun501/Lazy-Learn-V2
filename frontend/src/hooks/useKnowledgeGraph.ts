@@ -20,13 +20,13 @@ interface UseKnowledgeGraphReturn {
 }
 
 function mapNodeToFlow(concept: ConceptNode): Node {
-  return {
-    id: concept.id,
-    type: concept.level === 'chapter' ? 'chapter' : concept.level === 'equation' ? 'equation' : 'concept',
-    position: { x: 0, y: 0 }, // will be replaced by dagre layout
-    data: { concept, isExpanded: false, childCount: 0 },
-  }
-}
+   return {
+     id: concept.id,
+     type: concept.level === 'chapter' ? 'chapter' : 'concept',
+     position: { x: 0, y: 0 }, // will be replaced by dagre layout
+     data: { concept, isExpanded: false, childCount: 0 },
+   }
+ }
 
 function mapEdgeToFlow(edge: ConceptEdge): Edge {
   return {
@@ -34,7 +34,12 @@ function mapEdgeToFlow(edge: ConceptEdge): Edge {
     source: edge.sourceNodeId,
     target: edge.targetNodeId,
     label: edge.relationshipType.replace(/_/g, ' '),
-    data: { relationshipType: edge.relationshipType, confidence: edge.confidence },
+    data: {
+      relationshipType: edge.relationshipType,
+      confidence: edge.confidence,
+      reasoning: edge.reasoning,
+      metadata: edge.metadata,
+    },
   }
 }
 

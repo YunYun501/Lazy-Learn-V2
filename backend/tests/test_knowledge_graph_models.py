@@ -21,14 +21,41 @@ class TestNodeTypeEnum:
     """Test NodeType enum values."""
 
     def test_node_type_enum_values(self):
-        """Verify all 6 NodeType values exist."""
-        assert NodeType.theorem.value == "theorem"
-        assert NodeType.definition.value == "definition"
-        assert NodeType.equation.value == "equation"
-        assert NodeType.lemma.value == "lemma"
-        assert NodeType.concept.value == "concept"
-        assert NodeType.example.value == "example"
-        assert len(NodeType) == 6
+        """Verify all 29 NodeType values exist."""
+        expected = {
+            "theorem",
+            "definition",
+            "equation",
+            "lemma",
+            "corollary",
+            "axiom",
+            "proof",
+            "identity",
+            "formula",
+            "law",
+            "principle",
+            "theory",
+            "hypothesis",
+            "observation",
+            "constant",
+            "property",
+            "method",
+            "technique",
+            "algorithm",
+            "procedure",
+            "criterion",
+            "model",
+            "approximation",
+            "rule",
+            "condition",
+            "relation",
+            "concept",
+            "result",
+            "example",
+        }
+        actual = {e.value for e in NodeType}
+        assert actual == expected
+        assert len(NodeType) == 29
 
 
 class TestRelationshipTypeEnum:
@@ -45,7 +72,7 @@ class TestRelationshipTypeEnum:
         assert RelationshipType.contradicts.value == "contradicts"
         assert RelationshipType.defines.value == "defines"
         assert RelationshipType.equivalent_form.value == "equivalent_form"
-        assert RelationshipType.shared_variables.value == "shared_variables"
+        assert RelationshipType.variant_of.value == "variant_of"
         assert RelationshipType.contains.value == "contains"
         assert len(RelationshipType) == 11
 
@@ -66,12 +93,11 @@ class TestNodeLevelEnum:
     """Test NodeLevel enum values."""
 
     def test_node_level_enum_values(self):
-        """Verify all 4 NodeLevel values exist."""
+        """Verify all 3 NodeLevel values exist."""
         assert NodeLevel.chapter.value == "chapter"
         assert NodeLevel.section.value == "section"
         assert NodeLevel.subsection.value == "subsection"
-        assert NodeLevel.equation.value == "equation"
-        assert len(NodeLevel) == 4
+        assert len(NodeLevel) == 3
 
 
 class TestConceptNodeModel:
