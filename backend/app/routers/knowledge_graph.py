@@ -1,6 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from app.core.config import settings
+from app.core.config import settings, get_deepseek_api_key
 from app.models.knowledge_graph_models import (
     BuildGraphResponse,
     ConceptEdge,
@@ -161,7 +161,10 @@ async def _build_graph_background(textbook_id: str, job_id: str):
 
         store = get_storage()
         await store.initialize()
-        ai_router = AIRouter()
+        api_key = await get_deepseek_api_key()
+        ai_router = AIRouter(
+            deepseek_api_key=api_key, openai_api_key=settings.OPENAI_API_KEY
+        )
         builder = KnowledgeGraphBuilder(store=store, ai_router=ai_router)
         await builder.build_graph(textbook_id=textbook_id, job_id=job_id)
     except Exception as e:
