@@ -4,6 +4,7 @@ import dagre from '@dagrejs/dagre'
 
 const NODE_DIMENSIONS: Record<string, { width: number; height: number }> = {
   chapter: { width: 200, height: 80 },
+  section: { width: 190, height: 70 },
   concept: { width: 180, height: 60 },
   equation: { width: 160, height: 50 },
   default: { width: 180, height: 60 },

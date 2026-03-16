@@ -43,6 +43,29 @@ export function ConceptDetailPanel({ textbookId, nodeId, onClose }: ConceptDetai
               Found in: Page {detail.node.sourcePage}
             </div>
           )}
+          {detail.node.metadata?.section_path && (
+            <div className="concept-detail-panel__source">
+              Section: {String(detail.node.metadata.section_path)}
+            </div>
+          )}
+          {detail.node.level === 'equation' && detail.node.metadata?.variables && (
+            <div className="concept-detail-panel__relations">
+              <h4>Variables</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {(detail.node.metadata.variables as string[]).map((v: string) => (
+                  <span key={v} style={{ fontFamily: 'monospace', fontSize: 10, background: '#16213e', border: '1px solid #2a4a7a', padding: '2px 6px' }}>{v}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {detail.node.level === 'equation' && detail.node.metadata?.raw_latex && (
+            <div className="concept-detail-panel__relations">
+              <h4>LaTeX</h4>
+              <code style={{ fontFamily: 'monospace', fontSize: 10, wordBreak: 'break-all', color: '#5b9cf6' }}>
+                {String(detail.node.metadata.raw_latex)}
+              </code>
+            </div>
+          )}
           {detail.outgoingEdges.length > 0 && (
             <div className="concept-detail-panel__relations">
               <h4>Relationships</h4>

@@ -347,7 +347,7 @@ Max Concurrent: 4 (Wave 1)
 
   **Commit**: YES (groups with Tasks 1, 2, 3)
 
-- [ ] 5. Enhanced KnowledgeGraphBuilder — Per-Section Extraction
+- [x] 5. Enhanced KnowledgeGraphBuilder — Per-Section Extraction
 
   **What to do**:
   - Modify `backend/app/services/knowledge_graph_builder.py` build_graph method
@@ -394,7 +394,7 @@ Max Concurrent: 4 (Wave 1)
 
   **Commit**: YES (groups with Tasks 6, 7)
 
-- [ ] 6. Equation Node Creation + Variable Co-occurrence Edges
+- [x] 6. Equation Node Creation + Variable Co-occurrence Edges
 
   **What to do**:
   - Add Phase 3 to knowledge_graph_builder: equation-level node creation
@@ -443,7 +443,7 @@ Max Concurrent: 4 (Wave 1)
 
   **Commit**: YES (groups with Tasks 5, 7)
 
-- [ ] 7. Concept Deduplication Logic
+- [x] 7. Concept Deduplication Logic
 
   **What to do**:
   - Add `_deduplicate_concept(self, textbook_id, title, new_data) -> str` to KnowledgeGraphBuilder
@@ -481,7 +481,7 @@ Max Concurrent: 4 (Wave 1)
 
   **Commit**: YES (groups with Tasks 5, 6)
 
-- [ ] 8. EquationNode KaTeX Rendering Update
+- [x] 8. EquationNode KaTeX Rendering Update
 
   **What to do**:
   - Update `frontend/src/components/graph/EquationNode.tsx` to read `raw_latex` from node metadata
@@ -519,7 +519,7 @@ Max Concurrent: 4 (Wave 1)
 
   **Commit**: YES (groups with Tasks 9, 10, 11)
 
-- [ ] 9. 4-Level Expand/Collapse
+- [x] 9. 4-Level Expand/Collapse
 
   **What to do**:
   - Update `frontend/src/hooks/useExpandCollapse.ts`
@@ -560,7 +560,7 @@ Max Concurrent: 4 (Wave 1)
 
   **Commit**: YES (groups with Tasks 8, 10, 11)
 
-- [ ] 10. Edge Styling for shared_variables
+- [x] 10. Edge Styling for shared_variables
 
   **What to do**:
   - Update `frontend/src/components/graph/edgeStyles.ts`
@@ -598,7 +598,7 @@ Max Concurrent: 4 (Wave 1)
 
   **Commit**: YES (groups with Tasks 8, 9, 11)
 
-- [ ] 11. Section Path Display in ConceptDetailPanel
+- [x] 11. Section Path Display in ConceptDetailPanel
 
   **What to do**:
   - Update `frontend/src/components/graph/ConceptDetailPanel.tsx`

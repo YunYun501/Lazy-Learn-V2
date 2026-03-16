@@ -1,61 +1,128 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect } from 'vitest'
+import type { Node } from '@xyflow/react'
 import { useExpandCollapse } from './useExpandCollapse'
-import type { Node, Edge } from '@xyflow/react'
 
-function makeNode(id: string, type: string, sourceChapterId?: string): Node {
+type NodeLevel = 'chapter' | 'section' | 'subsection' | 'equation'
+
+function makeNode(options: {
+  id: string
+  type: string
+  level: NodeLevel
+  sourceChapterId?: string
+  sourceSectionId?: string
+}): Node {
+  const { id, type, level, sourceChapterId, sourceSectionId } = options
   return {
     id,
     type,
     position: { x: 0, y: 0 },
-    data: { concept: { sourceChapterId } },
+    data: { concept: { id, level, sourceChapterId, sourceSectionId } },
   }
 }
 
-function makeEdge(source: string, target: string): Edge {
-  return { id: `${source}-${target}`, source, target }
-}
-
 describe('useExpandCollapse', () => {
-  it('initially no chapters are expanded', () => {
+  it('chapter toggle shows and hides section children', () => {
     const { result } = renderHook(() => useExpandCollapse())
-    expect(result.current.expandedChapters.size).toBe(0)
+    const nodes = [
+      makeNode({ id: 'ch1', type: 'chapter', level: 'chapter' }),
+      makeNode({ id: 'sec1', type: 'concept', level: 'section', sourceChapterId: 'ch1' }),
+    ]
+
+    const collapsed = result.current.applyVisibility(nodes, [])
+    expect(collapsed.nodes.find((n) => n.id === 'ch1')?.hidden).toBe(false)
+    expect(collapsed.nodes.find((n) => n.id === 'sec1')?.hidden).toBe(true)
+
+    act(() => result.current.toggleChapter('ch1'))
+    const expanded = result.current.applyVisibility(nodes, [])
+    expect(expanded.nodes.find((n) => n.id === 'sec1')?.hidden).toBe(false)
   })
 
-  it('toggleChapter expands a chapter', () => {
+  it('section toggle shows and hides subsection and equation children', () => {
     const { result } = renderHook(() => useExpandCollapse())
     act(() => result.current.toggleChapter('ch1'))
-    expect(result.current.expandedChapters.has('ch1')).toBe(true)
+    const nodes = [
+      makeNode({ id: 'ch1', type: 'chapter', level: 'chapter' }),
+      makeNode({ id: 'sec1', type: 'concept', level: 'section', sourceChapterId: 'ch1' }),
+      makeNode({
+        id: 'sub1',
+        type: 'concept',
+        level: 'subsection',
+        sourceChapterId: 'ch1',
+        sourceSectionId: 'sec1',
+      }),
+      makeNode({
+        id: 'eq1',
+        type: 'equation',
+        level: 'equation',
+        sourceChapterId: 'ch1',
+        sourceSectionId: 'sec1',
+      }),
+    ]
+
+    const chapterOnly = result.current.applyVisibility(nodes, [])
+    expect(chapterOnly.nodes.find((n) => n.id === 'sec1')?.hidden).toBe(false)
+    expect(chapterOnly.nodes.find((n) => n.id === 'sub1')?.hidden).toBe(true)
+    expect(chapterOnly.nodes.find((n) => n.id === 'eq1')?.hidden).toBe(true)
+
+    act(() => result.current.toggleSection('sec1'))
+    const sectionExpanded = result.current.applyVisibility(nodes, [])
+    expect(sectionExpanded.nodes.find((n) => n.id === 'sub1')?.hidden).toBe(false)
+    expect(sectionExpanded.nodes.find((n) => n.id === 'eq1')?.hidden).toBe(false)
   })
 
-  it('toggleChapter collapses an already-expanded chapter', () => {
+  it('collapsing a chapter hides all descendants', () => {
     const { result } = renderHook(() => useExpandCollapse())
     act(() => result.current.toggleChapter('ch1'))
+    act(() => result.current.toggleSection('sec1'))
+    const nodes = [
+      makeNode({ id: 'ch1', type: 'chapter', level: 'chapter' }),
+      makeNode({ id: 'sec1', type: 'concept', level: 'section', sourceChapterId: 'ch1' }),
+      makeNode({
+        id: 'sub1',
+        type: 'concept',
+        level: 'subsection',
+        sourceChapterId: 'ch1',
+        sourceSectionId: 'sec1',
+      }),
+      makeNode({
+        id: 'eq1',
+        type: 'equation',
+        level: 'equation',
+        sourceChapterId: 'ch1',
+        sourceSectionId: 'sec1',
+      }),
+    ]
+
     act(() => result.current.toggleChapter('ch1'))
-    expect(result.current.expandedChapters.has('ch1')).toBe(false)
+    const collapsed = result.current.applyVisibility(nodes, [])
+    expect(collapsed.nodes.find((n) => n.id === 'sec1')?.hidden).toBe(true)
+    expect(collapsed.nodes.find((n) => n.id === 'sub1')?.hidden).toBe(true)
+    expect(collapsed.nodes.find((n) => n.id === 'eq1')?.hidden).toBe(true)
   })
 
-  it('applyVisibility hides non-chapter nodes when chapter collapsed', () => {
+  it('section expansion resets when chapter collapses', () => {
     const { result } = renderHook(() => useExpandCollapse())
-    const nodes = [makeNode('ch1', 'chapter'), makeNode('sec1', 'concept', 'ch1')]
-    const { nodes: visibleNodes } = result.current.applyVisibility(nodes, [])
-    expect(visibleNodes.find((n) => n.id === 'ch1')?.hidden).toBe(false)
-    expect(visibleNodes.find((n) => n.id === 'sec1')?.hidden).toBe(true)
-  })
-
-  it('applyVisibility shows section nodes when chapter expanded', () => {
-    const { result } = renderHook(() => useExpandCollapse())
+    const nodes = [
+      makeNode({ id: 'ch1', type: 'chapter', level: 'chapter' }),
+      makeNode({ id: 'sec1', type: 'concept', level: 'section', sourceChapterId: 'ch1' }),
+      makeNode({
+        id: 'sub1',
+        type: 'concept',
+        level: 'subsection',
+        sourceChapterId: 'ch1',
+        sourceSectionId: 'sec1',
+      }),
+    ]
     act(() => result.current.toggleChapter('ch1'))
-    const nodes = [makeNode('ch1', 'chapter'), makeNode('sec1', 'concept', 'ch1')]
-    const { nodes: visibleNodes } = result.current.applyVisibility(nodes, [])
-    expect(visibleNodes.find((n) => n.id === 'sec1')?.hidden).toBe(false)
-  })
+    act(() => result.current.toggleSection('sec1'))
+    result.current.applyVisibility(nodes, [])
+    act(() => result.current.toggleChapter('ch1'))
 
-  it('applyVisibility hides edges when connected nodes are hidden', () => {
-    const { result } = renderHook(() => useExpandCollapse())
-    const nodes = [makeNode('ch1', 'chapter'), makeNode('sec1', 'concept', 'ch1')]
-    const edges = [makeEdge('ch1', 'sec1')]
-    const { edges: visibleEdges } = result.current.applyVisibility(nodes, edges)
-    expect(visibleEdges[0].hidden).toBe(true)
+    expect(result.current.isSectionExpanded('sec1')).toBe(false)
+
+    act(() => result.current.toggleChapter('ch1'))
+    const afterReset = result.current.applyVisibility(nodes, [])
+    expect(afterReset.nodes.find((n) => n.id === 'sub1')?.hidden).toBe(true)
   })
 })

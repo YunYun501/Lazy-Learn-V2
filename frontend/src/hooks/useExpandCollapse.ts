@@ -1,18 +1,43 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import type { Node, Edge } from '@xyflow/react'
+import type { ConceptNodeData } from '../types/knowledgeGraph'
 
 interface UseExpandCollapseReturn {
   applyVisibility: (nodes: Node[], edges: Edge[]) => { nodes: Node[]; edges: Edge[] }
   toggleChapter: (nodeId: string) => void
+  toggleSection: (nodeId: string) => void
   expandedChapters: Set<string>
+  expandedSections: Set<string>
   isChapterExpanded: (nodeId: string) => boolean
+  isSectionExpanded: (nodeId: string) => boolean
 }
 
 export function useExpandCollapse(): UseExpandCollapseReturn {
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set())
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
+  const sectionToChapterRef = useRef<Map<string, string>>(new Map())
 
   const toggleChapter = useCallback((nodeId: string) => {
     setExpandedChapters((prev) => {
+      const next = new Set(prev)
+      if (next.has(nodeId)) {
+        next.delete(nodeId)
+        setExpandedSections((prevSections) => {
+          const nextSections = new Set(prevSections)
+          sectionToChapterRef.current.forEach((chapterId, sectionId) => {
+            if (chapterId === nodeId) nextSections.delete(sectionId)
+          })
+          return nextSections
+        })
+      } else {
+        next.add(nodeId)
+      }
+      return next
+    })
+  }, [])
+
+  const toggleSection = useCallback((nodeId: string) => {
+    setExpandedSections((prev) => {
       const next = new Set(prev)
       if (next.has(nodeId)) {
         next.delete(nodeId)
@@ -25,21 +50,37 @@ export function useExpandCollapse(): UseExpandCollapseReturn {
 
   const applyVisibility = useCallback(
     (nodes: Node[], edges: Edge[]) => {
-      const nodeToChapter = new Map<string, string>()
+      const nodeToParentChapter = new Map<string, string>()
+      const nodeToParentSection = new Map<string, string>()
+      const sectionToChapter = new Map<string, string>()
       nodes.forEach((node) => {
-        if (node.type !== 'chapter') {
-          const chapterId = (node.data as { concept?: { sourceChapterId?: string } })?.concept
-            ?.sourceChapterId
-          if (chapterId) nodeToChapter.set(node.id, chapterId)
+        const concept = (node.data as ConceptNodeData | undefined)?.concept
+        if (!concept) return
+        const { level, sourceChapterId, sourceSectionId } = concept
+        if (level !== 'chapter' && sourceChapterId) {
+          nodeToParentChapter.set(node.id, sourceChapterId)
+        }
+        if (level === 'section') {
+          if (sourceChapterId) sectionToChapter.set(node.id, sourceChapterId)
+        } else if (sourceSectionId) {
+          nodeToParentSection.set(node.id, sourceSectionId)
         }
       })
+      sectionToChapterRef.current = sectionToChapter
 
       const visibleNodes = nodes.map((node) => {
-        if (node.type === 'chapter') {
+        const concept = (node.data as ConceptNodeData | undefined)?.concept
+        if (node.type === 'chapter' || concept?.level === 'chapter') {
           return { ...node, hidden: false }
         }
-        const parentChapterId = nodeToChapter.get(node.id)
-        const isVisible = parentChapterId ? expandedChapters.has(parentChapterId) : true
+        const parentChapterId = nodeToParentChapter.get(node.id)
+        const parentSectionId = nodeToParentSection.get(node.id)
+        const isChapterVisible = parentChapterId ? expandedChapters.has(parentChapterId) : true
+        if (concept?.level === 'section') {
+          return { ...node, hidden: !isChapterVisible }
+        }
+        const isSectionVisible = parentSectionId ? expandedSections.has(parentSectionId) : true
+        const isVisible = isChapterVisible && isSectionVisible
         return { ...node, hidden: !isVisible }
       })
 
@@ -51,13 +92,16 @@ export function useExpandCollapse(): UseExpandCollapseReturn {
 
       return { nodes: visibleNodes, edges: visibleEdges }
     },
-    [expandedChapters]
+    [expandedChapters, expandedSections]
   )
 
   return {
     applyVisibility,
     toggleChapter,
+    toggleSection,
     expandedChapters,
+    expandedSections,
     isChapterExpanded: (nodeId: string) => expandedChapters.has(nodeId),
+    isSectionExpanded: (nodeId: string) => expandedSections.has(nodeId),
   }
 }

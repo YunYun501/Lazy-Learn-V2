@@ -56,6 +56,14 @@ const EDGE_STYLES: Record<RelationshipType, EdgeConfig> = {
     style: { stroke: '#f5a623', strokeWidth: 2 },
     markerEnd: { type: MarkerType.ArrowClosed, color: '#f5a623' },
   },
+  shared_variables: {
+    style: { stroke: '#9c27b0', strokeWidth: 2, strokeDasharray: '4 4' },
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#9c27b0' },
+  },
+  contains: {
+    style: { stroke: '#555555', strokeWidth: 1, strokeDasharray: '6 3' },
+    markerEnd: { type: MarkerType.Arrow, color: '#555555' },
+  },
 }
 
 export function getEdgeStyle(relationshipType: RelationshipType): Partial<Edge> {
@@ -78,6 +86,8 @@ export const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
   contradicts: 'contradicts',
   defines: 'defines',
   equivalent_form: 'equivalent form',
+  shared_variables: 'shared variables',
+  contains: 'contains',
 }
 
 export { EDGE_STYLES }

@@ -11,6 +11,8 @@ const LEGEND_COLORS: Record<RelationshipType, string> = {
   contradicts: '#ff4444',
   defines: '#6dce9e',
   equivalent_form: '#f5a623',
+  shared_variables: '#9c27b0',
+  contains: '#555555',
 }
 
 export function GraphLegend() {

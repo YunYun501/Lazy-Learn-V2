@@ -13,6 +13,8 @@ const ALL_RELATIONSHIP_TYPES: RelationshipType[] = [
   'contradicts',
   'defines',
   'equivalent_form',
+  'shared_variables',
+  'contains',
 ]
 
 describe('getEdgeStyle', () => {
@@ -79,8 +81,8 @@ describe('getEdgeStyle', () => {
 })
 
 describe('RELATIONSHIP_LABELS', () => {
-  it('covers all 9 types', () => {
-    expect(Object.keys(RELATIONSHIP_LABELS)).toHaveLength(9)
+  it('covers all 11 types', () => {
+    expect(Object.keys(RELATIONSHIP_LABELS)).toHaveLength(11)
   })
 
   it('has label for derives_from', () => {
@@ -103,8 +105,8 @@ describe('RELATIONSHIP_LABELS', () => {
 })
 
 describe('EDGE_STYLES', () => {
-  it('has entries for all 9 relationship types', () => {
-    expect(Object.keys(EDGE_STYLES)).toHaveLength(9)
+  it('has entries for all 11 relationship types', () => {
+    expect(Object.keys(EDGE_STYLES)).toHaveLength(11)
   })
 
   it('contradicts has animated flag', () => {

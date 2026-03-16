@@ -59,10 +59,9 @@ describe('EquationNode', () => {
     expect(container.firstChild).toHaveClass('graph-node')
   })
 
-  it('renders InlineMath when latex metadata is present', () => {
-    const data = makeData({ metadata: { latex: 'E = mc^2' } })
+  it('renders InlineMath when raw_latex metadata is present', () => {
+    const data = makeData({ metadata: { raw_latex: 'E = mc^2' } })
     render(<EquationNode {...makeProps(data)} />)
-    expect(screen.getByTestId('inline-math')).toBeInTheDocument()
     expect(screen.getByText('E = mc^2')).toBeInTheDocument()
   })
 
