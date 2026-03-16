@@ -859,3 +859,205 @@ class MetadataStore:
             ) as cursor:
                 rows = await cursor.fetchall()
             return [dict(row) for row in rows]
+
+    async def create_concept_node(
+        self,
+        textbook_id: str,
+        title: str,
+        node_type: str,
+        level: str,
+        description: str | None = None,
+        source_chapter_id: str | None = None,
+        source_section_id: str | None = None,
+        source_page: int | None = None,
+        metadata_json: str | None = None,
+    ) -> str:
+        """Create a concept node. Returns the node id."""
+        node_id = str(uuid.uuid4())
+        now = datetime.utcnow().isoformat()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT INTO concept_nodes (id, textbook_id, title, node_type, level, description, source_chapter_id, source_section_id, source_page, metadata_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    node_id,
+                    textbook_id,
+                    title,
+                    node_type,
+                    level,
+                    description,
+                    source_chapter_id,
+                    source_section_id,
+                    source_page,
+                    metadata_json,
+                    now,
+                ),
+            )
+            await db.commit()
+        return node_id
+
+    async def get_concept_nodes(
+        self, textbook_id: str, level: str | None = None
+    ) -> list[dict]:
+        """Get all concept nodes for a textbook, optionally filtered by level."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            if level is None:
+                async with db.execute(
+                    "SELECT * FROM concept_nodes WHERE textbook_id = ? ORDER BY created_at",
+                    (textbook_id,),
+                ) as cursor:
+                    rows = await cursor.fetchall()
+            else:
+                async with db.execute(
+                    "SELECT * FROM concept_nodes WHERE textbook_id = ? AND level = ? ORDER BY created_at",
+                    (textbook_id, level),
+                ) as cursor:
+                    rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    async def get_concept_node(self, node_id: str) -> dict | None:
+        """Get a single concept node by id."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM concept_nodes WHERE id = ?",
+                (node_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+            return dict(row) if row else None
+
+    async def delete_concept_nodes(self, textbook_id: str) -> int:
+        """Delete all concept nodes for a textbook. Returns count deleted."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "DELETE FROM concept_nodes WHERE textbook_id = ?",
+                (textbook_id,),
+            )
+            await db.commit()
+            return cursor.rowcount
+
+    async def create_concept_edge(
+        self,
+        textbook_id: str,
+        source_node_id: str,
+        target_node_id: str,
+        relationship_type: str,
+        confidence: float = 1.0,
+        reasoning: str | None = None,
+    ) -> str:
+        """Create a concept edge. Returns the edge id."""
+        edge_id = str(uuid.uuid4())
+        now = datetime.utcnow().isoformat()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT INTO concept_edges (id, textbook_id, source_node_id, target_node_id, relationship_type, confidence, reasoning, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    edge_id,
+                    textbook_id,
+                    source_node_id,
+                    target_node_id,
+                    relationship_type,
+                    confidence,
+                    reasoning,
+                    now,
+                ),
+            )
+            await db.commit()
+        return edge_id
+
+    async def get_concept_edges(self, textbook_id: str) -> list[dict]:
+        """Get all concept edges for a textbook."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM concept_edges WHERE textbook_id = ? ORDER BY created_at",
+                (textbook_id,),
+            ) as cursor:
+                rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    async def delete_concept_edges(self, textbook_id: str) -> int:
+        """Delete all concept edges for a textbook. Returns count deleted."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "DELETE FROM concept_edges WHERE textbook_id = ?",
+                (textbook_id,),
+            )
+            await db.commit()
+            return cursor.rowcount
+
+    async def create_graph_job(self, textbook_id: str, total_chapters: int = 0) -> str:
+        """Create a graph generation job. Returns the job id."""
+        job_id = str(uuid.uuid4())
+        now = datetime.utcnow().isoformat()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT INTO graph_generation_jobs (id, textbook_id, status, progress_pct, total_chapters, processed_chapters, error, created_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    job_id,
+                    textbook_id,
+                    "pending",
+                    0.0,
+                    total_chapters,
+                    0,
+                    None,
+                    now,
+                    None,
+                ),
+            )
+            await db.commit()
+        return job_id
+
+    async def get_graph_job(self, job_id: str) -> dict | None:
+        """Get a graph generation job by id."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM graph_generation_jobs WHERE id = ?",
+                (job_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+            return dict(row) if row else None
+
+    async def update_graph_job(
+        self,
+        job_id: str,
+        status: str | None = None,
+        progress_pct: float | None = None,
+        processed_chapters: int | None = None,
+        error: str | None = None,
+        completed_at: str | None = None,
+    ) -> None:
+        """Update a graph generation job's fields."""
+        updates = {}
+        if status is not None:
+            updates["status"] = status
+        if progress_pct is not None:
+            updates["progress_pct"] = progress_pct
+        if processed_chapters is not None:
+            updates["processed_chapters"] = processed_chapters
+        if error is not None:
+            updates["error"] = error
+        if completed_at is not None:
+            updates["completed_at"] = completed_at
+        if not updates:
+            return
+        set_clause = ", ".join(f"{key} = ?" for key in updates)
+        values = list(updates.values()) + [job_id]
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                f"UPDATE graph_generation_jobs SET {set_clause} WHERE id = ?",
+                values,
+            )
+            await db.commit()
+
+    async def get_latest_graph_job(self, textbook_id: str) -> dict | None:
+        """Get the most recent graph job for a textbook."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM graph_generation_jobs WHERE textbook_id = ? ORDER BY created_at DESC LIMIT 1",
+                (textbook_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+            return dict(row) if row else None

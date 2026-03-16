@@ -726,7 +726,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `backend/app/services/knowledge_graph_builder.py`, `backend/tests/test_knowledge_graph_builder.py`
   - Pre-commit: `cd backend && python -m pytest tests/test_knowledge_graph_builder.py -v`
 
-- [ ] 7. MetadataStore Graph CRUD Methods
+- [x] 7. MetadataStore Graph CRUD Methods
 
   **What to do**:
   - Write RED tests first: test each CRUD method with in-memory SQLite
@@ -903,7 +903,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `backend/app/routers/knowledge_graph.py`, `backend/app/main.py`, `backend/tests/test_knowledge_graph_router.py`
   - Pre-commit: `cd backend && python -m pytest tests/test_knowledge_graph_router.py -v`
 
-- [ ] 9. Frontend API Client for Knowledge Graph
+- [x] 9. Frontend API Client for Knowledge Graph
 
   **What to do**:
   - Create `frontend/src/api/knowledgeGraph.ts`
@@ -981,7 +981,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/src/api/knowledgeGraph.ts`
   - Pre-commit: `cd frontend && npx tsc --noEmit`
 
-- [ ] 10. Custom React Flow Node Components
+- [x] 10. Custom React Flow Node Components
 
   **What to do**:
   - Write RED vitest tests first: test node rendering, test props handling
@@ -1082,7 +1082,7 @@ Max Concurrent: 5 (Waves 1 & 2)
   - Files: `frontend/src/components/graph/ChapterNode.tsx`, `ConceptNode.tsx`, `EquationNode.tsx`, `nodeTypes.ts`
   - Pre-commit: `cd frontend && npx vitest run`
 
-- [ ] 11. Dagre Layout Utility
+- [x] 11. Dagre Layout Utility
 
   **What to do**:
   - Write RED vitest tests first: test layout computation with mock nodes/edges
