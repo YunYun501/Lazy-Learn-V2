@@ -107,8 +107,8 @@ def test_build_endpoint_returns_202():
 # ---------------------------------------------------------------------------
 
 
-def test_build_endpoint_rejects_not_fully_extracted():
-    """POST /api/knowledge-graph/{id}/build → 400 for textbook not fully_extracted."""
+def test_build_endpoint_rejects_uploaded_status():
+    """POST /api/knowledge-graph/{id}/build → 400 for textbook with uploaded status."""
     with (
         patch("app.routers.knowledge_graph.get_storage") as mock_get_storage,
     ):
@@ -119,6 +119,30 @@ def test_build_endpoint_rejects_not_fully_extracted():
         resp = client.post(f"/api/knowledge-graph/{TEXTBOOK_ID}/build")
 
     assert resp.status_code == 400
+
+
+def test_build_endpoint_allows_partially_extracted():
+    """POST /api/knowledge-graph/{id}/build → 202 for textbook with partially_extracted status."""
+    with (
+        patch("app.routers.knowledge_graph.get_storage") as mock_get_storage,
+    ):
+        mock_store = AsyncMock()
+        mock_get_storage.return_value = mock_store
+        mock_store.get_textbook.return_value = make_textbook("partially_extracted")
+        mock_store.list_chapters.return_value = [
+            {"id": "ch-1"},
+            {"id": "ch-2"},
+        ]
+        mock_store.delete_concept_nodes.return_value = 0
+        mock_store.delete_concept_edges.return_value = 0
+        mock_store.create_graph_job.return_value = JOB_ID
+
+        resp = client.post(f"/api/knowledge-graph/{TEXTBOOK_ID}/build")
+
+    assert resp.status_code == 202
+    data = resp.json()
+    assert data["job_id"] == JOB_ID
+    assert data["status"] == "pending"
 
 
 # ---------------------------------------------------------------------------

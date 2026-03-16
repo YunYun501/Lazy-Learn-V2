@@ -19,7 +19,15 @@ class KnowledgeGraphBuilder:
     async def build_graph(self, textbook_id: str, job_id: str) -> None:
         try:
             await self.store.update_graph_job(job_id=job_id, status="processing")
-            chapters = await self.store.list_chapters(textbook_id)
+            all_chapters = await self.store.list_chapters(textbook_id)
+            chapters = [
+                ch for ch in all_chapters if ch.get("extraction_status") == "extracted"
+            ]
+            if not chapters:
+                await self.store.update_graph_job(
+                    job_id=job_id, status="failed", error="No extracted chapters found"
+                )
+                return
             total = len(chapters)
 
             all_nodes: list[dict] = []

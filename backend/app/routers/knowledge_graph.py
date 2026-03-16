@@ -57,10 +57,11 @@ async def build_graph(textbook_id: str, background_tasks: BackgroundTasks):
     if not textbook:
         raise HTTPException(status_code=404, detail="Textbook not found")
 
-    if textbook.get("pipeline_status") != "fully_extracted":
+    ALLOWED_STATUSES = {"partially_extracted", "extracting", "fully_extracted"}
+    if textbook.get("pipeline_status") not in ALLOWED_STATUSES:
         raise HTTPException(
             status_code=400,
-            detail="Textbook must be fully extracted before building a knowledge graph",
+            detail="Textbook must have at least some extracted chapters before building a knowledge graph",
         )
 
     chapters = await store.list_chapters(textbook_id)

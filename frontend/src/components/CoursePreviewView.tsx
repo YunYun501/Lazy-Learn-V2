@@ -113,7 +113,7 @@ export function CoursePreviewView({
           <h2 className="preview-course-title">{course?.name}</h2>
           <PixelButton
             variant="primary"
-            disabled={!selectedTextbookId || pipelineStatus !== 'fully_extracted' || isGenerating}
+            disabled={!selectedTextbookId || !['partially_extracted', 'extracting', 'fully_extracted'].includes(pipelineStatus) || isGenerating}
             onClick={graphExists ? () => navigate(`/graph/${selectedTextbookId}`) : handleGenerateRelationship}
           >
             {isGenerating ? 'Generating...' : graphExists ? 'View Graph' : 'Generate Relationship'}

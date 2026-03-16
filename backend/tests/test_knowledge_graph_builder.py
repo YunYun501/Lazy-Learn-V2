@@ -24,6 +24,7 @@ async def _seed_textbook_and_chapter(store):
         page_start=1,
         page_end=10,
     )
+    await store.update_chapter_extraction_status(chapter_id, "extracted")
     return textbook_id, chapter_id
 
 
