@@ -8,6 +8,7 @@ from app.models.knowledge_graph_models import (
     ConceptNodeDetail,
     GraphData,
     GraphStatusResponse,
+    RelationshipType,
 )
 from app.services.storage import MetadataStore
 
@@ -20,6 +21,16 @@ router = APIRouter(prefix="/api/knowledge-graph", tags=["knowledge-graph"])
 
 
 def _map_node(row: dict) -> dict:
+    import json as _json
+
+    metadata = None
+    raw_meta = row.get("metadata_json")
+    if raw_meta:
+        try:
+            metadata = _json.loads(raw_meta) if isinstance(raw_meta, str) else raw_meta
+        except (ValueError, TypeError):
+            metadata = None
+
     return {
         "id": row["id"],
         "textbook_id": row["textbook_id"],
@@ -30,7 +41,7 @@ def _map_node(row: dict) -> dict:
         "source_chapter_id": row.get("source_chapter_id"),
         "source_section_id": row.get("source_section_id"),
         "source_page": row.get("source_page"),
-        "metadata": None,
+        "metadata": metadata,
         "created_at": row["created_at"],
     }
 
@@ -113,9 +124,14 @@ async def get_graph_data(textbook_id: str):
         )
 
     edge_rows = await store.get_concept_edges(textbook_id)
+    valid_rel_types = {e.value for e in RelationshipType}
 
     nodes = [ConceptNode(**_map_node(row)) for row in node_rows]
-    edges = [ConceptEdge(**_map_edge(row)) for row in edge_rows]
+    edges = [
+        ConceptEdge(**_map_edge(row))
+        for row in edge_rows
+        if row.get("relationship_type") in valid_rel_types
+    ]
 
     return GraphData(textbook_id=textbook_id, nodes=nodes, edges=edges)
 
@@ -130,12 +146,19 @@ async def get_node_detail(textbook_id: str, node_id: str):
         raise HTTPException(status_code=404, detail="Node not found")
 
     all_edges = await store.get_concept_edges(textbook_id)
+    valid_rel_types = {e.value for e in RelationshipType}
 
     outgoing = [
-        ConceptEdge(**_map_edge(e)) for e in all_edges if e["source_node_id"] == node_id
+        ConceptEdge(**_map_edge(e))
+        for e in all_edges
+        if e["source_node_id"] == node_id
+        and e.get("relationship_type") in valid_rel_types
     ]
     incoming = [
-        ConceptEdge(**_map_edge(e)) for e in all_edges if e["target_node_id"] == node_id
+        ConceptEdge(**_map_edge(e))
+        for e in all_edges
+        if e["target_node_id"] == node_id
+        and e.get("relationship_type") in valid_rel_types
     ]
 
     return ConceptNodeDetail(

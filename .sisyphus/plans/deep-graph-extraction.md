@@ -636,7 +636,7 @@ Max Concurrent: 4 (Wave 1)
 
   **Commit**: YES (groups with Tasks 8, 9, 10)
 
-- [ ] 12. Integration Test — Full 4-Level Pipeline
+- [x] 12. Integration Test — Full 4-Level Pipeline
 
   **What to do**:
   - Write `backend/tests/test_deep_graph_integration.py`
@@ -671,7 +671,7 @@ Max Concurrent: 4 (Wave 1)
 
   **Commit**: YES (groups with Task 13)
 
-- [ ] 13. Manual QA — Regenerate Graph on Real Textbook
+- [x] 13. Manual QA — Regenerate Graph on Real Textbook
 
   **What to do**:
   - Start backend + frontend
