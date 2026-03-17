@@ -5,7 +5,9 @@ from datetime import datetime
 from app.models.knowledge_graph_models import NodeType
 from app.services.knowledge_graph_prompts import (
     CROSS_SECTION_RELATIONSHIP_PROMPT,
+    EQUATION_ENRICHMENT_PROMPT,
     KEY_RESULT_EXTRACTION_PROMPT,
+    parse_enrichment_response,
     parse_key_result_response,
     parse_relationship_response,
 )
@@ -309,11 +311,6 @@ class KnowledgeGraphBuilder:
         async def _enrich(node_entry: dict) -> None:
             async with semaphore:
                 try:
-                    from app.services.knowledge_graph_prompts import (
-                        EQUATION_ENRICHMENT_PROMPT,
-                        parse_enrichment_response,
-                    )
-
                     metadata = node_entry["metadata"]
                     equation_latex = node_entry["equation"]
                     prompt = EQUATION_ENRICHMENT_PROMPT.format(

@@ -93,9 +93,9 @@ export function ConceptDetailPanel({ textbookId, nodeId, nodes, onClose, onNavig
             <div className="concept-detail-panel__relations">
               <h4>Equation Breakdown</h4>
               <ul className="concept-detail-panel__breakdown">
-                {(detail.node.metadata.equation_components as EquationComponent[]).map((comp, i) => (
+                {(detail.node.metadata.equation_components as EquationComponent[]).map((comp) => (
                   <li
-                    key={i}
+                    key={comp.symbol}
                     className={`concept-detail-panel__variable concept-detail-panel__variable--${comp.type}`}
                     onClick={
                       comp.type === 'calculated' && comp.linked_node_id && onNavigateToNode
