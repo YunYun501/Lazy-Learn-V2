@@ -114,6 +114,55 @@ IMPORTANT: Return ONLY valid JSON. The root must be an object with "concept_grou
 Do not include markdown or code blocks.
 """
 
+EQUATION_ENRICHMENT_PROMPT = """
+You are analyzing an equation to identify and classify its variables and factors as components of a knowledge graph.
+
+Equation (LaTeX):
+{equation_latex}
+
+Section Context:
+{section_text}
+
+Existing Knowledge Graph Nodes (available for linking):
+{existing_nodes_json}
+
+For each variable, symbol, or factor in the equation, determine:
+1. Whether it is "calculated" (has its own formula/equation that can be linked to a node) or "constant" (a parameter, physical constant, or design choice)
+2. If "calculated", find the matching node from the existing list and provide its ID
+3. If "constant", provide the page reference where it is defined or looked up
+
+Example: For the endurance limit equation σ_e = k_a·k_b·k_c·k_d·k_e·k_g·σ'_e
+- k_a (surface factor): constant, from Table 6-2, p.312
+- k_b (size factor): constant, from Table 6-3, p.315
+- σ'_e (endurance limit of test specimen): calculated, derived from σ'_e ≈ 0.5·S_ut, can link to "Endurance Limit" node
+
+Return a JSON object with this exact structure:
+{{
+  "equation_components": [
+    {{
+      "symbol": "k_a",
+      "name": "surface factor",
+      "type": "constant",
+      "description": "Accounts for the effect of surface finish on fatigue strength",
+      "latex": null,
+      "page_reference": "p.312, Table 6-2",
+      "linked_node_id": null
+    }},
+    {{
+      "symbol": "\\sigma'_e",
+      "name": "endurance limit of test specimen",
+      "type": "calculated",
+      "description": "The base endurance limit from rotating-beam tests before applying Marin factors",
+      "latex": "\\sigma'_e \\approx 0.5 S_{{ut}}",
+      "page_reference": null,
+      "linked_node_id": "uuid-from-provided-list"
+    }}
+  ]
+}}
+
+IMPORTANT: Return ONLY valid JSON. No markdown. No code blocks. The root must be an object with "equation_components" array.
+"""
+
 
 def _strip_code_blocks(text: str) -> str:
     stripped = text.strip()
@@ -188,3 +237,25 @@ def parse_key_result_response(raw) -> dict:
         return {"concept_groups": [], "derivations": []}
     except (json.JSONDecodeError, ValueError):
         return {"concept_groups": [], "derivations": []}
+
+
+def parse_enrichment_response(raw) -> list[dict]:
+    try:
+        if isinstance(raw, dict):
+            equation_components = raw.get("equation_components")
+            if isinstance(equation_components, list):
+                return equation_components
+        if isinstance(raw, str):
+            stripped = _strip_code_blocks(raw)
+            parsed = json.loads(stripped)
+            if isinstance(parsed, dict):
+                equation_components = parsed.get("equation_components")
+                if isinstance(equation_components, list):
+                    return equation_components
+            if isinstance(parsed, list):
+                return parsed
+        if isinstance(raw, list):
+            return raw
+        return []
+    except (json.JSONDecodeError, ValueError, AttributeError, TypeError):
+        return []
