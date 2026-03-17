@@ -186,6 +186,10 @@ function GraphPageInner({ textbookId }: { textbookId: string }) {
             nodeId={selectedNodeId}
             nodes={nodes}
             onClose={() => setSelectedNodeId(null)}
+            onNavigateToNode={(nodeId) => {
+              setSelectedNodeId(nodeId)
+              setSelectedEdgeId(null)
+            }}
           />
           <DerivationPanel
             edge={selectedEdge}

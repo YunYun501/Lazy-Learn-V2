@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { ReactNode } from 'react'
@@ -22,6 +22,14 @@ vi.mock('../components/graph/nodeTypes', () => ({
 
 vi.mock('../hooks/useKnowledgeGraph', () => ({
   useKnowledgeGraph: vi.fn(),
+}))
+
+let capturedOnNavigateToNode: ((nodeId: string) => void) | undefined
+vi.mock('../components/graph/ConceptDetailPanel', () => ({
+  ConceptDetailPanel: (props: { onNavigateToNode?: (nodeId: string) => void }) => {
+    capturedOnNavigateToNode = props.onNavigateToNode
+    return <div data-testid="concept-detail-panel" />
+  },
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -127,7 +135,21 @@ describe('GraphPage', () => {
         </Routes>
       </MemoryRouter>,
     )
-    // When textbookId param is undefined, renders fallback
     expect(screen.getByText('Invalid textbook ID')).toBeInTheDocument()
+  })
+
+  it('test_onNavigateToNode_wired_to_setSelectedNodeId', () => {
+    vi.mocked(useKnowledgeGraph).mockReturnValue({
+      ...defaultReturn,
+      hasGraph: true,
+      nodes: [{ id: 'n1', type: 'concept', position: { x: 0, y: 0 }, data: {} }],
+    })
+    capturedOnNavigateToNode = undefined
+    renderGraph()
+    expect(capturedOnNavigateToNode).toBeTypeOf('function')
+    act(() => {
+      capturedOnNavigateToNode!('node-target')
+    })
+    expect(defaultReturn.setSelectedNodeId).toHaveBeenCalledWith('node-target')
   })
 })
