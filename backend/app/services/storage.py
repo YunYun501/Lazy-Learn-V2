@@ -917,6 +917,17 @@ class MetadataStore:
             await db.commit()
         return node_id
 
+    async def update_concept_node_metadata(
+        self, node_id: str, metadata_json: str
+    ) -> None:
+        """Update the metadata_json field of a concept node. Silent if node not found."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE concept_nodes SET metadata_json = ? WHERE id = ?",
+                (metadata_json, node_id),
+            )
+            await db.commit()
+
     async def get_concept_nodes(
         self, textbook_id: str, level: str | None = None
     ) -> list[dict]:
