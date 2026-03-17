@@ -149,4 +149,221 @@ describe('ConceptDetailPanel', () => {
       screen.queryByText('A theorem about right triangles.'),
     ).not.toBeInTheDocument()
   })
+
+  it('renders equation breakdown section when components present', async () => {
+    mockGetNodeDetail.mockResolvedValue(
+      makeDetail({
+        node: {
+          ...makeDetail().node,
+          metadata: {
+            equation_components: [
+              {
+                symbol: 'k_a',
+                name: 'surface factor',
+                type: 'constant',
+                description: 'Surface finish effect',
+                page_reference: 'p.312',
+                linked_node_id: null,
+                latex: null,
+              },
+              {
+                symbol: "σ'_e",
+                name: 'endurance limit',
+                type: 'calculated',
+                description: 'Base endurance limit',
+                latex: "\\sigma'_e = 0.5 S_{ut}",
+                linked_node_id: 'node-linked-1',
+                page_reference: null,
+              },
+            ],
+          },
+        },
+      }),
+    )
+    const onNavigateToNode = vi.fn()
+    render(
+      <ConceptDetailPanel
+        textbookId="tb-1"
+        nodeId="node-1"
+        nodes={[]}
+        onClose={vi.fn()}
+        onNavigateToNode={onNavigateToNode}
+      />,
+    )
+    await waitFor(() => {
+      expect(screen.getByText('Equation Breakdown')).toBeInTheDocument()
+    })
+    expect(screen.getByText('surface factor')).toBeInTheDocument()
+    expect(screen.getByText(/p\.312/)).toBeInTheDocument()
+  })
+
+  it('hides breakdown section when equation_components is absent', async () => {
+    mockGetNodeDetail.mockResolvedValue(makeDetail())
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Pythagorean Theorem')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Equation Breakdown')).not.toBeInTheDocument()
+  })
+
+  it('hides breakdown section when equation_components is empty array', async () => {
+    mockGetNodeDetail.mockResolvedValue(
+      makeDetail({
+        node: {
+          ...makeDetail().node,
+          metadata: { equation_components: [] },
+        },
+      }),
+    )
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Pythagorean Theorem')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Equation Breakdown')).not.toBeInTheDocument()
+  })
+
+  it('constant variable shows page reference', async () => {
+    mockGetNodeDetail.mockResolvedValue(
+      makeDetail({
+        node: {
+          ...makeDetail().node,
+          metadata: {
+            equation_components: [
+              {
+                symbol: 'k_a',
+                name: 'surface factor',
+                type: 'constant',
+                description: 'Surface finish effect',
+                page_reference: 'p.312',
+                linked_node_id: null,
+                latex: null,
+              },
+            ],
+          },
+        },
+      }),
+    )
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Equation Breakdown')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/p\.312/)).toBeInTheDocument()
+    expect(screen.getByText('surface factor')).toBeInTheDocument()
+  })
+
+  it('calculated variable with linked_node_id is clickable and calls onNavigateToNode', async () => {
+    mockGetNodeDetail.mockResolvedValue(
+      makeDetail({
+        node: {
+          ...makeDetail().node,
+          metadata: {
+            equation_components: [
+              {
+                symbol: "σ'_e",
+                name: 'endurance limit',
+                type: 'calculated',
+                description: 'Base endurance limit',
+                latex: "\\sigma'_e = 0.5 S_{ut}",
+                linked_node_id: 'node-linked-1',
+                page_reference: null,
+              },
+            ],
+          },
+        },
+      }),
+    )
+    const onNavigateToNode = vi.fn()
+    render(
+      <ConceptDetailPanel
+        textbookId="tb-1"
+        nodeId="node-1"
+        nodes={[]}
+        onClose={vi.fn()}
+        onNavigateToNode={onNavigateToNode}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('endurance limit')).toBeInTheDocument()
+    })
+
+    const listItem = screen.getByText('endurance limit').closest('li')
+    expect(listItem).not.toBeNull()
+    await userEvent.click(listItem!)
+    expect(onNavigateToNode).toHaveBeenCalledWith('node-linked-1')
+  })
+
+  it('calculated variable without linked_node_id is not clickable', async () => {
+    mockGetNodeDetail.mockResolvedValue(
+      makeDetail({
+        node: {
+          ...makeDetail().node,
+          metadata: {
+            equation_components: [
+              {
+                symbol: 'S_e',
+                name: 'corrected endurance limit',
+                type: 'calculated',
+                description: 'Endurance limit after corrections',
+                latex: 'S_e = k_a k_b S_e^{\\prime}',
+                linked_node_id: null,
+                page_reference: null,
+              },
+            ],
+          },
+        },
+      }),
+    )
+    const onNavigateToNode = vi.fn()
+    render(
+      <ConceptDetailPanel
+        textbookId="tb-1"
+        nodeId="node-1"
+        nodes={[]}
+        onClose={vi.fn()}
+        onNavigateToNode={onNavigateToNode}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('corrected endurance limit')).toBeInTheDocument()
+    })
+
+    const listItem = screen.getByText('corrected endurance limit').closest('li')
+    expect(listItem).not.toBeNull()
+    await userEvent.click(listItem!)
+    expect(onNavigateToNode).not.toHaveBeenCalled()
+  })
+
+  it('invalid latex in calculated component renders fallback without crashing', async () => {
+    mockGetNodeDetail.mockResolvedValue(
+      makeDetail({
+        node: {
+          ...makeDetail().node,
+          metadata: {
+            equation_components: [
+              {
+                symbol: 'x',
+                name: 'bad variable',
+                type: 'calculated',
+                description: 'Has broken LaTeX',
+                latex: '\\invalid{unclosed',
+                linked_node_id: null,
+                page_reference: null,
+              },
+            ],
+          },
+        },
+      }),
+    )
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('bad variable')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Equation Breakdown')).toBeInTheDocument()
+  })
 })

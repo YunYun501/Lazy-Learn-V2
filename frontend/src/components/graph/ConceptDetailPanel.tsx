@@ -5,14 +5,33 @@ import type { Node } from '@xyflow/react'
 import { getNodeDetail } from '../../api/knowledgeGraph'
 import type { ConceptNodeDetail } from '../../types/knowledgeGraph'
 
+interface EquationComponent {
+  symbol: string
+  name: string
+  type: 'calculated' | 'constant'
+  description: string
+  latex?: string | null
+  page_reference?: string | null
+  linked_node_id?: string | null
+}
+
 interface ConceptDetailPanelProps {
   textbookId: string
   nodeId: string | null
   nodes: Node[]
   onClose: () => void
+  onNavigateToNode?: (nodeId: string) => void
 }
 
-export function ConceptDetailPanel({ textbookId, nodeId, nodes, onClose }: ConceptDetailPanelProps) {
+function EquationDisplay({ latex }: { latex: string }) {
+  try {
+    return <BlockMath math={latex} />
+  } catch {
+    return <code>{latex}</code>
+  }
+}
+
+export function ConceptDetailPanel({ textbookId, nodeId, nodes, onClose, onNavigateToNode }: ConceptDetailPanelProps) {
   const [detail, setDetail] = useState<ConceptNodeDetail | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -69,6 +88,39 @@ export function ConceptDetailPanel({ textbookId, nodeId, nodes, onClose }: Conce
                </div>
              </div>
            )}
+          {Array.isArray(detail.node.metadata?.equation_components) &&
+            (detail.node.metadata.equation_components as EquationComponent[]).length > 0 && (
+            <div className="concept-detail-panel__relations">
+              <h4>Equation Breakdown</h4>
+              <ul className="concept-detail-panel__breakdown">
+                {(detail.node.metadata.equation_components as EquationComponent[]).map((comp, i) => (
+                  <li
+                    key={i}
+                    className={`concept-detail-panel__variable concept-detail-panel__variable--${comp.type}`}
+                    onClick={
+                      comp.type === 'calculated' && comp.linked_node_id && onNavigateToNode
+                        ? () => onNavigateToNode(comp.linked_node_id!)
+                        : undefined
+                    }
+                    style={{ cursor: comp.type === 'calculated' && comp.linked_node_id ? 'pointer' : 'default' }}
+                  >
+                    <span className="concept-detail-panel__variable-symbol">{comp.symbol}</span>
+                    {' = '}
+                    <span className="concept-detail-panel__variable-name">{comp.name}</span>
+                    <div className="concept-detail-panel__variable-desc">{comp.description}</div>
+                    {comp.type === 'calculated' && comp.latex && (
+                      <div className="concept-detail-panel__equation">
+                        <EquationDisplay latex={comp.latex} />
+                      </div>
+                    )}
+                    {comp.type === 'constant' && comp.page_reference && (
+                      <div className="concept-detail-panel__page-ref">📌 {comp.page_reference}</div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {detail.outgoingEdges.length > 0 && (
             <div className="concept-detail-panel__relations">
               <h4>Relationships</h4>
