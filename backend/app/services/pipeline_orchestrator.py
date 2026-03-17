@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+import time
 from typing import Any, Optional
 
 from app.models.pipeline_models import ExtractionStatus, PipelineStatus
 from app.services.storage import MetadataStore
+
+logger = logging.getLogger(__name__)
 
 
 class PipelineOrchestrator:
@@ -21,7 +25,14 @@ class PipelineOrchestrator:
         self.extraction_service = extraction_service
         self.description_service = description_service
 
-    async def start_import(self, textbook_id: str, course_id: Optional[str], file_path: str) -> dict:
+    async def start_import(
+        self, textbook_id: str, course_id: Optional[str], file_path: str
+    ) -> dict:
+        start_time = time.perf_counter()
+        logger.info(
+            "Pipeline phase started",
+            extra={"phase": "start_import", "textbook_id": textbook_id},
+        )
         try:
             title = file_path.split("/")[-1].replace("_", " ").replace(".pdf", "")
             await self.store.create_textbook(
@@ -33,9 +44,33 @@ class PipelineOrchestrator:
             )
             if course_id:
                 await self.store.assign_textbook_to_course(textbook_id, course_id)
-            await self.store.update_textbook_pipeline_status(textbook_id, PipelineStatus.uploaded.value)
-            return {"textbook_id": textbook_id, "pipeline_status": PipelineStatus.uploaded.value}
+            await self.store.update_textbook_pipeline_status(
+                textbook_id, PipelineStatus.uploaded.value
+            )
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.info(
+                "Pipeline phase completed",
+                extra={
+                    "phase": "start_import",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                },
+            )
+            return {
+                "textbook_id": textbook_id,
+                "pipeline_status": PipelineStatus.uploaded.value,
+            }
         except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.error(
+                "Pipeline phase failed",
+                extra={
+                    "phase": "start_import",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                },
+                exc_info=True,
+            )
             await self._set_error(textbook_id)
             return {
                 "textbook_id": textbook_id,
@@ -44,6 +79,11 @@ class PipelineOrchestrator:
             }
 
     async def run_toc_phase(self, textbook_id: str) -> dict:
+        start_time = time.perf_counter()
+        logger.info(
+            "Pipeline phase started",
+            extra={"phase": "toc", "textbook_id": textbook_id},
+        )
         try:
             textbook = await self.store.get_textbook(textbook_id)
             if not textbook:
@@ -97,12 +137,25 @@ class PipelineOrchestrator:
             relevance_results: list[dict] = []
             course_id = textbook.get("course_id")
             if course_id and self.relevance_service is not None:
-                raw = await self.relevance_service.match_chapters(textbook_id, course_id)
+                raw = await self.relevance_service.match_chapters(
+                    textbook_id, course_id
+                )
                 relevance_results = [
                     r.model_dump() if hasattr(r, "model_dump") else r for r in raw
                 ]
 
-            await self.store.update_textbook_pipeline_status(textbook_id, PipelineStatus.toc_extracted.value)
+            await self.store.update_textbook_pipeline_status(
+                textbook_id, PipelineStatus.toc_extracted.value
+            )
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.info(
+                "Pipeline phase completed",
+                extra={
+                    "phase": "toc",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                },
+            )
             return {
                 "textbook_id": textbook_id,
                 "pipeline_status": PipelineStatus.toc_extracted.value,
@@ -110,6 +163,16 @@ class PipelineOrchestrator:
                 "relevance_results": relevance_results,
             }
         except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.error(
+                "Pipeline phase failed",
+                extra={
+                    "phase": "toc",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                },
+                exc_info=True,
+            )
             await self._set_error(textbook_id)
             return {
                 "textbook_id": textbook_id,
@@ -117,8 +180,15 @@ class PipelineOrchestrator:
                 "error": str(exc),
             }
 
-    async def submit_verification(self, textbook_id: str, selected_chapter_ids: list[str]) -> dict:
+    async def submit_verification(
+        self, textbook_id: str, selected_chapter_ids: list[str]
+    ) -> dict:
+        start_time = time.perf_counter()
         try:
+            logger.info(
+                "Pipeline phase started",
+                extra={"phase": "verification", "textbook_id": textbook_id},
+            )
             await self.store.update_textbook_pipeline_status(
                 textbook_id,
                 PipelineStatus.awaiting_verification.value,
@@ -142,11 +212,30 @@ class PipelineOrchestrator:
                 textbook_id,
                 PipelineStatus.extracting.value,
             )
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.info(
+                "Pipeline phase completed",
+                extra={
+                    "phase": "verification",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                },
+            )
             return {
                 "textbook_id": textbook_id,
                 "pipeline_status": PipelineStatus.extracting.value,
             }
         except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.error(
+                "Pipeline phase failed",
+                extra={
+                    "phase": "verification",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                },
+                exc_info=True,
+            )
             await self._set_error(textbook_id)
             return {
                 "textbook_id": textbook_id,
@@ -154,7 +243,14 @@ class PipelineOrchestrator:
                 "error": str(exc),
             }
 
-    async def run_extraction_phase(self, textbook_id: str, chapter_ids: list[str]) -> dict:
+    async def run_extraction_phase(
+        self, textbook_id: str, chapter_ids: list[str]
+    ) -> dict:
+        start_time = time.perf_counter()
+        logger.info(
+            "Pipeline phase started",
+            extra={"phase": "extraction", "textbook_id": textbook_id},
+        )
         try:
             if self.extraction_service is not None:
                 await self.extraction_service.extract(textbook_id, chapter_ids)
@@ -176,8 +272,28 @@ class PipelineOrchestrator:
                 status = PipelineStatus.partially_extracted
 
             await self.store.update_textbook_pipeline_status(textbook_id, status.value)
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.info(
+                "Pipeline phase completed",
+                extra={
+                    "phase": "extraction",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                    "pipeline_status": status.value,
+                },
+            )
             return {"textbook_id": textbook_id, "pipeline_status": status.value}
         except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.error(
+                "Pipeline phase failed",
+                extra={
+                    "phase": "extraction",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                },
+                exc_info=True,
+            )
             await self._set_error(textbook_id)
             return {
                 "textbook_id": textbook_id,
@@ -185,8 +301,15 @@ class PipelineOrchestrator:
                 "error": str(exc),
             }
 
-    async def run_deferred_extraction(self, textbook_id: str, chapter_ids: list[str]) -> dict:
+    async def run_deferred_extraction(
+        self, textbook_id: str, chapter_ids: list[str]
+    ) -> dict:
+        start_time = time.perf_counter()
         try:
+            logger.info(
+                "Pipeline phase started",
+                extra={"phase": "deferred_extraction", "textbook_id": textbook_id},
+            )
             await self.store.update_textbook_pipeline_status(
                 textbook_id,
                 PipelineStatus.extracting.value,
@@ -196,11 +319,30 @@ class PipelineOrchestrator:
                     chapter_id,
                     ExtractionStatus.extracting.value,
                 )
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.info(
+                "Pipeline phase completed",
+                extra={
+                    "phase": "deferred_extraction",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                },
+            )
             return {
                 "textbook_id": textbook_id,
                 "pipeline_status": PipelineStatus.extracting.value,
             }
         except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.error(
+                "Pipeline phase failed",
+                extra={
+                    "phase": "deferred_extraction",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                },
+                exc_info=True,
+            )
             await self._set_error(textbook_id)
             return {
                 "textbook_id": textbook_id,
@@ -208,12 +350,38 @@ class PipelineOrchestrator:
                 "error": str(exc),
             }
 
-    async def run_description_phase(self, textbook_id: str, chapter_ids: list[str]) -> dict:
+    async def run_description_phase(
+        self, textbook_id: str, chapter_ids: list[str]
+    ) -> dict:
+        start_time = time.perf_counter()
         try:
+            logger.info(
+                "Pipeline phase started",
+                extra={"phase": "description", "textbook_id": textbook_id},
+            )
             if self.description_service is not None:
                 await self.description_service.generate(textbook_id, chapter_ids)
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.info(
+                "Pipeline phase completed",
+                extra={
+                    "phase": "description",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                },
+            )
             return {"textbook_id": textbook_id, "chapter_ids": chapter_ids}
         except Exception as exc:
+            duration_ms = int((time.perf_counter() - start_time) * 1000)
+            logger.error(
+                "Pipeline phase failed",
+                extra={
+                    "phase": "description",
+                    "textbook_id": textbook_id,
+                    "duration_ms": duration_ms,
+                },
+                exc_info=True,
+            )
             await self._set_error(textbook_id)
             return {
                 "textbook_id": textbook_id,
@@ -223,6 +391,8 @@ class PipelineOrchestrator:
 
     async def _set_error(self, textbook_id: str) -> None:
         try:
-            await self.store.update_textbook_pipeline_status(textbook_id, PipelineStatus.error.value)
+            await self.store.update_textbook_pipeline_status(
+                textbook_id, PipelineStatus.error.value
+            )
         except Exception:
             return

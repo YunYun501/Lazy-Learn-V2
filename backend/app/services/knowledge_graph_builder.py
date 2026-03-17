@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+import time
 from datetime import datetime
 
 from app.models.knowledge_graph_models import NodeType
@@ -13,6 +15,8 @@ from app.services.knowledge_graph_prompts import (
 )
 from app.services.section_content_mapper import get_sections_with_content
 from app.services.storage import MetadataStore
+
+logger = logging.getLogger(__name__)
 
 _VALID_NODE_TYPES = {e.value for e in NodeType}
 
@@ -29,12 +33,21 @@ class KnowledgeGraphBuilder:
         self.ai_router = ai_router
 
     async def build_graph(self, textbook_id: str, job_id: str) -> None:
+        t0 = time.perf_counter()
         try:
             await self.store.update_graph_job(job_id=job_id, status="processing")
             all_chapters = await self.store.list_chapters(textbook_id)
             chapters = [
                 ch for ch in all_chapters if ch.get("extraction_status") == "extracted"
             ]
+            logger.info(
+                "Graph build started",
+                extra={
+                    "textbook_id": textbook_id,
+                    "job_id": job_id,
+                    "chapter_count": len(chapters),
+                },
+            )
             if not chapters:
                 await self.store.update_graph_job(
                     job_id=job_id, status="failed", error="No extracted chapters found"
@@ -61,10 +74,17 @@ class KnowledgeGraphBuilder:
                 sections_by_chapter.append({"chapter": chapter, "sections": sections})
                 total_sections += len(sections)
 
-            semaphore = asyncio.Semaphore(3)
+            concurrency_limit = 30
+            semaphore = asyncio.Semaphore(concurrency_limit)
             processed_sections = 0
             concept_lock = asyncio.Lock()
             pending_concepts: dict[str, str] = {}
+            self._edge_count = 0
+            self._edge_count_lock = asyncio.Lock()
+            logger.debug(
+                "LLM concurrency configured",
+                extra={"concurrency": concurrency_limit},
+            )
 
             async def process_section(chapter, section):
                 nonlocal processed_sections
@@ -103,11 +123,53 @@ class KnowledgeGraphBuilder:
                             equations_text="\n".join(equation_entries),
                         )
 
+                        raw = None
                         try:
+                            logger.info(
+                                "Key results extraction started",
+                                extra={
+                                    "textbook_id": textbook_id,
+                                    "chapter_title": chapter.get("title"),
+                                },
+                            )
+                            llm_start = time.perf_counter()
                             raw = await self.ai_router.get_json_response(prompt)
                             parsed = parse_key_result_response(raw)
+                            llm_duration_ms = int(
+                                (time.perf_counter() - llm_start) * 1000
+                            )
+                            logger.debug(
+                                "LLM call completed",
+                                extra={
+                                    "duration_ms": llm_duration_ms,
+                                    "chapter_title": chapter.get("title"),
+                                },
+                            )
                         except Exception:
+                            raw_snippet = str(raw)[:200] if raw is not None else ""
+                            logger.warning(
+                                "Unparseable JSON from LLM",
+                                extra={
+                                    "textbook_id": textbook_id,
+                                    "chapter_title": chapter.get("title"),
+                                    "response_snippet": raw_snippet,
+                                },
+                            )
                             parsed = {"concept_groups": [], "derivations": []}
+
+                        node_count = sum(
+                            len(group.get("members", [])) + 1
+                            for group in parsed.get("concept_groups", [])
+                            if isinstance(group, dict)
+                        )
+                        logger.info(
+                            "Key results extraction completed",
+                            extra={
+                                "textbook_id": textbook_id,
+                                "chapter_title": chapter.get("title"),
+                                "node_count": node_count,
+                            },
+                        )
 
                         concept_ids = {}
                         valid_types = {
@@ -152,8 +214,10 @@ class KnowledgeGraphBuilder:
                                     pending_concepts[group_title] = group_node_id
                             concept_ids[group_title] = group_node_id
 
+                            member_node_id = ""
                             for member in group.get("members", []):
                                 member_title = member.get("title", "Unknown")
+                                member_node_id = ""
                                 async with concept_lock:
                                     if member_title in pending_concepts:
                                         member_node_id = pending_concepts[member_title]
@@ -189,14 +253,17 @@ class KnowledgeGraphBuilder:
                                                 }
                                             )
                                         pending_concepts[member_title] = member_node_id
+                                if not member_node_id:
+                                    continue
                                 concept_ids[member_title] = member_node_id
-
                                 await self.store.create_concept_edge(
                                     textbook_id=textbook_id,
                                     source_node_id=group_node_id,
                                     target_node_id=member_node_id,
                                     relationship_type="contains",
                                 )
+                                async with self._edge_count_lock:
+                                    self._edge_count += 1
 
                             for rel in group.get("intra_relationships", []):
                                 source_id = concept_ids.get(rel.get("source", ""))
@@ -213,6 +280,8 @@ class KnowledgeGraphBuilder:
                                     relationship_type=rel_type,
                                     reasoning=rel.get("reasoning"),
                                 )
+                                async with self._edge_count_lock:
+                                    self._edge_count += 1
 
                         for deriv in parsed.get("derivations", []):
                             source_id = concept_ids.get(deriv.get("source", ""))
@@ -233,6 +302,8 @@ class KnowledgeGraphBuilder:
                                     }
                                 ),
                             )
+                            async with self._edge_count_lock:
+                                self._edge_count += 1
 
                     processed_sections += 1
                     progress = 0.3 + (processed_sections / max(total_sections, 1)) * 0.5
@@ -263,6 +334,18 @@ class KnowledgeGraphBuilder:
                     textbook_id=textbook_id, nodes=all_nodes
                 )
 
+            duration_s = round(time.perf_counter() - t0, 2)
+            edge_count = getattr(self, "_edge_count", 0)
+            logger.info(
+                "Graph build completed",
+                extra={
+                    "textbook_id": textbook_id,
+                    "job_id": job_id,
+                    "total_nodes": len(all_nodes),
+                    "total_edges": edge_count,
+                    "duration_s": duration_s,
+                },
+            )
             await self.store.update_graph_job(
                 job_id=job_id,
                 status="completed",
@@ -270,6 +353,11 @@ class KnowledgeGraphBuilder:
                 completed_at=datetime.utcnow().isoformat(),
             )
         except Exception as exc:
+            logger.error(
+                "Graph build failed",
+                extra={"textbook_id": textbook_id, "job_id": job_id},
+                exc_info=True,
+            )
             await self.store.update_graph_job(
                 job_id=job_id,
                 status="failed",
@@ -337,6 +425,11 @@ class KnowledgeGraphBuilder:
         if len(nodes) < 2:
             return
 
+        logger.info(
+            "Cross-section relationship extraction started",
+            extra={"textbook_id": textbook_id, "node_count": len(nodes)},
+        )
+
         concepts_str = "\n".join(
             f"{index + 1}. {node['title']}" for index, node in enumerate(nodes[:50])
         )
@@ -345,6 +438,7 @@ class KnowledgeGraphBuilder:
             concepts_list=concepts_str,
         )
 
+        raw = None
         try:
             raw = await ai_router.get_json_response(prompt)
             if isinstance(raw, dict):
@@ -358,9 +452,18 @@ class KnowledgeGraphBuilder:
             if not isinstance(relationships, list):
                 relationships = []
         except Exception:
+            raw_snippet = str(raw)[:200] if raw is not None else ""
+            logger.warning(
+                "Unparseable JSON from LLM",
+                extra={
+                    "textbook_id": textbook_id,
+                    "response_snippet": raw_snippet,
+                },
+            )
             return
 
         title_to_id = {node["title"]: node["id"] for node in nodes}
+        edges_created = 0
         for rel in relationships:
             source_id = title_to_id.get(rel.get("source", ""))
             target_id = title_to_id.get(rel.get("target", ""))
@@ -379,6 +482,15 @@ class KnowledgeGraphBuilder:
                 confidence=confidence,
                 reasoning=rel.get("reasoning"),
             )
+            edges_created += 1
+            if hasattr(self, "_edge_count_lock"):
+                async with self._edge_count_lock:
+                    self._edge_count += 1
+
+        logger.info(
+            "Cross-section relationship extraction completed",
+            extra={"textbook_id": textbook_id, "edge_count": edges_created},
+        )
 
     async def _deduplicate_concept(self, textbook_id: str, title: str) -> str | None:
         import aiosqlite

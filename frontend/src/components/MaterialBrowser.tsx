@@ -3,6 +3,7 @@ import { PixelButton } from './pixel'
 import { getMaterialTopics, rescanMaterial, checkMaterialRelevance, getMaterialRelevance } from '../api/universityMaterials'
 import type { MaterialTopic } from '../api/universityMaterials'
 import type { MaterialRelevanceEntry } from '../types/pipeline'
+import { logger } from '../services/logger'
 import '../styles/bookshelf.css'
 
 interface MaterialBrowserProps {
@@ -34,8 +35,7 @@ export function MaterialBrowser({ materialId }: MaterialBrowserProps) {
       setTopics(data.topics)
       setRawSummary(data.raw_summary)
     } catch (err) {
-      console.warn('MaterialBrowser:', err)
-      // silently ignore
+      logger.warn('Failed to load material topics', { component: 'MaterialBrowser', error: err instanceof Error ? err : undefined })
     } finally {
       setLoading(false)
     }
@@ -116,7 +116,7 @@ export function MaterialBrowser({ materialId }: MaterialBrowserProps) {
         setRescanning(false)
       }, 5000)
     } catch (err) {
-      console.warn('MaterialBrowser:', err)
+      logger.warn('Rescan failed', { component: 'MaterialBrowser', error: err instanceof Error ? err : undefined })
       setRescanning(false)
     }
   }, [materialId, rescanning, fetchTopics])
@@ -127,9 +127,8 @@ export function MaterialBrowser({ materialId }: MaterialBrowserProps) {
     setRelevanceStatus('checking')
     try {
       await checkMaterialRelevance(materialId)
-      // Polling is handled by the useEffect above
     } catch {
-      console.warn('MaterialBrowser: relevance check failed')
+      logger.warn('Relevance check failed', { component: 'MaterialBrowser' })
       setRelevanceChecking(false)
       setRelevanceStatus('error')
     }

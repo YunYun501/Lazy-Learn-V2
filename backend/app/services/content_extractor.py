@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import shutil
 import tempfile
@@ -6,6 +7,8 @@ from pathlib import Path
 
 from app.models.pipeline_models import ContentType, ExtractedContent, Section
 from app.services.storage import MetadataStore
+
+logger = logging.getLogger(__name__)
 
 try:
     from mineru.cli.common import do_parse
@@ -28,6 +31,12 @@ class ContentExtractor:
         chapter_ids: list[str],
         pdf_path: str,
     ) -> list[ExtractedContent]:
+        logger.info(
+            "Extracting %d chapters from %s",
+            len(chapter_ids),
+            pdf_path,
+            extra={"textbook_id": textbook_id},
+        )
         chapters = await self.store.list_chapters(textbook_id)
         chapter_map = {c["id"]: c for c in chapters if c["id"] in set(chapter_ids)}
         ordered = sorted(chapter_map.values(), key=lambda c: c["page_start"])
@@ -36,14 +45,23 @@ class ContentExtractor:
         for batch in self._batch_contiguous(ordered):
             results.extend(await self._extract_batch(textbook_id, batch, pdf_path))
 
+        logger.info(
+            "Extraction complete: %d content entries",
+            len(results),
+            extra={"textbook_id": textbook_id},
+        )
         return results
 
-    async def extract(self, textbook_id: str, chapter_ids: list[str]) -> list[ExtractedContent]:
+    async def extract(
+        self, textbook_id: str, chapter_ids: list[str]
+    ) -> list[ExtractedContent]:
         """Adapter for PipelineOrchestrator — looks up PDF path from store."""
         textbook = await self.store.get_textbook(textbook_id)
         if not textbook:
             raise ValueError("Textbook not found")
-        return await self.extract_chapters(textbook_id, chapter_ids, textbook["filepath"])
+        return await self.extract_chapters(
+            textbook_id, chapter_ids, textbook["filepath"]
+        )
 
     async def extract_sections(
         self,
@@ -140,12 +158,14 @@ class ContentExtractor:
             heading = f"## {title}" if title else None
             parts = [heading] if heading else []
             parts.extend(current_texts)
-            merged.append({
-                "type": "text",
-                "text": "\n\n".join(parts),
-                "page_number": current_page,
-                "_section_title": title,
-            })
+            merged.append(
+                {
+                    "type": "text",
+                    "text": "\n\n".join(parts),
+                    "page_number": current_page,
+                    "_section_title": title,
+                }
+            )
             current_section = None
             current_texts = []
             current_page = None
@@ -204,12 +224,14 @@ class ContentExtractor:
             if section_title:
                 parts.append(f"## {section_title}")
             parts.extend(section_texts)
-            merged.append({
-                "type": "text",
-                "text": "\n\n".join(parts),
-                "page_number": section_page,
-                "_section_title": section_title,
-            })
+            merged.append(
+                {
+                    "type": "text",
+                    "text": "\n\n".join(parts),
+                    "page_number": section_page,
+                    "_section_title": section_title,
+                }
+            )
             section_title = None
             section_texts = []
             section_page = None
@@ -337,6 +359,10 @@ class ContentExtractor:
                 chapter_number = str(chapter["chapter_number"])
                 entries = per_chapter_entries.get(chapter_id, [])
                 try:
+                    logger.info(
+                        "Chapter extraction started",
+                        extra={"textbook_id": textbook_id, "chapter_id": chapter_id},
+                    )
                     extracted.extend(
                         await self._store_chapter_entries(
                             textbook_id, chapter_id, chapter_number, entries, temp_dir
@@ -345,11 +371,31 @@ class ContentExtractor:
                     await self.store.update_chapter_extraction_status(
                         chapter_id, "extracted"
                     )
+                    logger.info(
+                        "Chapter extraction completed",
+                        extra={
+                            "textbook_id": textbook_id,
+                            "chapter_id": chapter_id,
+                            "entry_count": len(entries),
+                        },
+                    )
                 except Exception:
-                    await self.store.update_chapter_extraction_status(chapter_id, "error")
+                    logger.error(
+                        "Chapter extraction failed",
+                        extra={"textbook_id": textbook_id, "chapter_id": chapter_id},
+                        exc_info=True,
+                    )
+                    await self.store.update_chapter_extraction_status(
+                        chapter_id, "error"
+                    )
 
             return extracted
         except Exception:
+            logger.error(
+                "Batch extraction failed",
+                extra={"textbook_id": textbook_id},
+                exc_info=True,
+            )
             for chapter in chapters:
                 await self.store.update_chapter_extraction_status(
                     chapter["id"], "error"

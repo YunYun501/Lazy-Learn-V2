@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { getGraphData, getGraphStatus, pollGraphStatus } from '../api/knowledgeGraph'
+import { logger } from '../services/logger'
 import type { GraphData, ConceptNode, ConceptEdge } from '../types/knowledgeGraph'
 import { computeLayout } from './useGraphLayout'
 
@@ -82,6 +83,7 @@ export function useKnowledgeGraph(textbookId: string): UseKnowledgeGraphReturn {
               if (finalStatus.status === 'completed') {
                 setReloadCount((c) => c + 1)
               } else if (finalStatus.status === 'failed') {
+                logger.error(`Graph generation failed: ${finalStatus.error ?? 'unknown'}`, { component: 'useKnowledgeGraph', context: textbookId })
                 setError(finalStatus.error ?? 'Graph generation failed')
                 setIsGenerating(false)
               }
@@ -100,6 +102,7 @@ export function useKnowledgeGraph(textbookId: string): UseKnowledgeGraphReturn {
           }
         }
       } catch (err) {
+        logger.error(`Graph load error: ${err instanceof Error ? err.message : 'unknown'}`, { component: 'useKnowledgeGraph', context: textbookId })
         if (!cancelled) setError(err instanceof Error ? err.message : 'Unknown error')
       } finally {
         if (!cancelled) setIsLoading(false)
@@ -111,9 +114,13 @@ export function useKnowledgeGraph(textbookId: string): UseKnowledgeGraphReturn {
     }
   }, [textbookId, reloadCount])
 
-  const rawNodes = graphData?.nodes.map(mapNodeToFlow) ?? []
-  const rawEdges = graphData?.edges.map(mapEdgeToFlow) ?? []
-  const { nodes, edges } = computeLayout(rawNodes, rawEdges)
+  const { nodes, edges } = useMemo(() => {
+    const rawNodes = graphData?.nodes.map(mapNodeToFlow) ?? []
+    const allEdges = graphData?.edges.map(mapEdgeToFlow) ?? []
+    const nodeIds = new Set(rawNodes.map((n) => n.id))
+    const rawEdges = allEdges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
+    return computeLayout(rawNodes, rawEdges)
+  }, [graphData])
 
   return {
     nodes,

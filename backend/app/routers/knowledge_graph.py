@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from app.core.config import settings, get_deepseek_api_key
@@ -11,6 +13,8 @@ from app.models.knowledge_graph_models import (
     RelationshipType,
 )
 from app.services.storage import MetadataStore
+
+logger = logging.getLogger(__name__)
 
 
 def get_storage() -> MetadataStore:
@@ -72,6 +76,7 @@ def _map_edge(row: dict) -> dict:
 
 @router.post("/{textbook_id}/build", response_model=BuildGraphResponse, status_code=202)
 async def build_graph(textbook_id: str, background_tasks: BackgroundTasks):
+    logger.info("Build graph requested", extra={"textbook_id": textbook_id})
     store = get_storage()
     await store.initialize()
 
@@ -136,14 +141,25 @@ async def get_graph_data(textbook_id: str):
 
     edge_rows = await store.get_concept_edges(textbook_id)
     valid_rel_types = {e.value for e in RelationshipType}
+    valid_node_ids = {row["id"] for row in node_rows}
 
     nodes = [ConceptNode(**_map_node(row)) for row in node_rows]
     edges = [
         ConceptEdge(**_map_edge(row))
         for row in edge_rows
         if row.get("relationship_type") in valid_rel_types
+        and row.get("source_node_id") in valid_node_ids
+        and row.get("target_node_id") in valid_node_ids
     ]
 
+    logger.info(
+        "Graph data served",
+        extra={
+            "textbook_id": textbook_id,
+            "node_count": len(nodes),
+            "edge_count": len(edges),
+        },
+    )
     return GraphData(textbook_id=textbook_id, nodes=nodes, edges=edges)
 
 
@@ -202,6 +218,12 @@ async def _build_graph_background(textbook_id: str, job_id: str):
         builder = KnowledgeGraphBuilder(store=store, ai_router=ai_router)
         await builder.build_graph(textbook_id=textbook_id, job_id=job_id)
     except Exception as e:
+        logger.error(
+            "Background graph build failed: %s",
+            e,
+            extra={"textbook_id": textbook_id, "job_id": job_id},
+            exc_info=True,
+        )
         store = get_storage()
         await store.initialize()
         await store.update_graph_job(job_id=job_id, status="failed", error=str(e))

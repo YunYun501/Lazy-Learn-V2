@@ -1,7 +1,12 @@
 import json
+import logging
 from app.services.deepseek_provider import DeepSeekProvider
 from app.services.openai_provider import OpenAIProvider
 from app.models.ai_models import ConceptExtraction, ClassifiedMatch, PracticeProblems
+
+
+logger = logging.getLogger(__name__)
+
 
 class AIRouter:
     """
@@ -21,18 +26,40 @@ class AIRouter:
 
     async def extract_concepts(self, user_query: str) -> ConceptExtraction:
         """Always uses DeepSeek."""
+        logger.debug(
+            "AI provider selected",
+            extra={"provider": "deepseek", "method": "extract_concepts"},
+        )
         return await self.deepseek.extract_concepts(user_query)
 
-    async def classify_matches(self, descriptions, concept: str) -> list[ClassifiedMatch]:
+    async def classify_matches(
+        self, descriptions, concept: str
+    ) -> list[ClassifiedMatch]:
         """Always uses DeepSeek."""
+        logger.debug(
+            "AI provider selected",
+            extra={"provider": "deepseek", "method": "classify_matches"},
+        )
         return await self.deepseek.classify_matches(descriptions, concept)
 
-    async def generate_explanation(self, content_chunks, query: str, stream: bool = True):
+    async def generate_explanation(
+        self, content_chunks, query: str, stream: bool = True
+    ):
         """Always uses DeepSeek (deepseek-reasoner for 64K output)."""
+        logger.debug(
+            "AI provider selected",
+            extra={"provider": "deepseek", "method": "generate_explanation"},
+        )
         return await self.deepseek.generate_explanation(content_chunks, query, stream)
 
-    async def generate_practice_problems(self, content: str, topic: str, count: int = 3) -> PracticeProblems:
+    async def generate_practice_problems(
+        self, content: str, topic: str, count: int = 3
+    ) -> PracticeProblems:
         """Always uses DeepSeek."""
+        logger.debug(
+            "AI provider selected",
+            extra={"provider": "deepseek", "method": "generate_practice_problems"},
+        )
         return await self.deepseek.generate_practice_problems(content, topic, count)
 
     async def analyze_image(self, image_path: str, prompt: str) -> str:
@@ -40,19 +67,38 @@ class AIRouter:
         Uses OpenAI GPT-4o Vision if available.
         Falls back to 'Vision not available' message if not configured.
         """
+        logger.debug(
+            "AI provider selected",
+            extra={"provider": "openai", "method": "analyze_image"},
+        )
         return await self.openai.analyze_image(image_path, prompt)
 
-    async def get_json_response(self, prompt: "str | list[dict]", temperature: float | None = None, timeout: float | None = None) -> dict:
+    async def get_json_response(
+        self,
+        prompt: "str | list[dict]",
+        temperature: float | None = None,
+        timeout: float | None = None,
+    ) -> dict:
         """Send a chat request with JSON mode and return parsed dict. Uses DeepSeek.
 
         Accepts either a plain string prompt (wrapped into a user message) or
         a pre-built list of message dicts.
         """
+        logger.debug(
+            "AI provider selected",
+            extra={"provider": "deepseek", "method": "get_json_response"},
+        )
         if isinstance(prompt, str):
             messages = [{"role": "user", "content": prompt}]
         else:
             messages = prompt
-        raw = await self.deepseek.chat(messages, json_mode=True, temperature=temperature, timeout=timeout)
+        raw = await self.deepseek.chat(
+            messages, json_mode=True, temperature=temperature, timeout=timeout
+        )
         if isinstance(raw, str):
-            return json.loads(raw)
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError:
+                logger.error("JSON parse failed: %.200s", raw, exc_info=True)
+                return {}
         return {}

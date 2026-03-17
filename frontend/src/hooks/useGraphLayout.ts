@@ -35,10 +35,9 @@ export function computeLayout(nodes: Node[], edges: Edge[]): { nodes: Node[]; ed
     const dims = NODE_DIMENSIONS[type] ?? NODE_DIMENSIONS.default
     return {
       ...node,
-      position: {
-        x: pos.x - dims.width / 2,
-        y: pos.y - dims.height / 2,
-      },
+      position: pos
+        ? { x: pos.x - dims.width / 2, y: pos.y - dims.height / 2 }
+        : { x: 0, y: 0 },
     }
   })
 

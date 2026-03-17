@@ -1,9 +1,10 @@
 {
-  "active_plan": "C:\\Local\\Github\\Lazy_Learn\\.sisyphus\\plans\\content-pipeline-redesign.md",
-  "started_at": "2026-02-28T19:59:06.412Z",
+  "active_plan": "C:\\Local\\Github\\Lazy_Learn\\.sisyphus\\plans\\equation-decomposition.md",
+  "started_at": "2026-03-17T02:09:56.810Z",
   "session_ids": [
-    "ses_35b9ef206ffek3dRjIEev5B2vV"
+    "ses_306a2433fffefL2JUhlWA8Aw9D"
   ],
-  "plan_name": "content-pipeline-redesign",
+  "plan_name": "equation-decomposition",
+  "worktree_path": "C:\\Local\\Github\\Lazy_Learn_eq",
   "agent": "atlas"
 }

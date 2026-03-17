@@ -1,4 +1,5 @@
 import { API_BASE } from './config'
+import { logger } from '../services/logger'
 import type {
   BuildGraphResponse,
   GraphStatusResponse,
@@ -40,8 +41,12 @@ function mapEdge(raw: Record<string, unknown>): ConceptEdge {
 
 export async function buildGraph(textbookId: string): Promise<BuildGraphResponse> {
   const url = `${API_BASE}/knowledge-graph/${textbookId}/build`
+  logger.info(`Building graph for textbook ${textbookId}`, { component: 'knowledgeGraph' })
   const res = await fetch(url, { method: 'POST' })
-  if (!res.ok) throw new Error(`Failed to build graph: ${res.status}`)
+  if (!res.ok) {
+    logger.error(`Build graph failed: ${res.status}`, { component: 'knowledgeGraph', context: textbookId })
+    throw new Error(`Failed to build graph: ${res.status}`)
+  }
   const raw = (await res.json()) as Record<string, unknown>
   return {
     jobId: raw.job_id as string,
@@ -70,7 +75,10 @@ export async function getGraphStatus(textbookId: string): Promise<GraphStatusRes
 export async function getGraphData(textbookId: string): Promise<GraphData> {
   const url = `${API_BASE}/knowledge-graph/${textbookId}/graph`
   const res = await fetch(url, { method: 'GET' })
-  if (!res.ok) throw new Error(`Failed to get graph data: ${res.status}`)
+  if (!res.ok) {
+    logger.error(`Get graph data failed: ${res.status}`, { component: 'knowledgeGraph', context: textbookId })
+    throw new Error(`Failed to get graph data: ${res.status}`)
+  }
   const raw = (await res.json()) as Record<string, unknown>
   return {
     textbookId: raw.textbook_id as string,

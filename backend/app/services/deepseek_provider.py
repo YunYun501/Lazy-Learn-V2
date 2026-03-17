@@ -1,15 +1,19 @@
 import asyncio
 import json
+import logging
 import time
 from typing import AsyncGenerator
 import httpx
 from app.models.ai_models import (
-    ConceptExtraction, ClassifiedMatch, PracticeProblems, Problem
+    ConceptExtraction,
+    ClassifiedMatch,
+    PracticeProblems,
+    Problem,
 )
 from app.services.ai_provider import AIProvider
 
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
-CHAT_MODEL = "deepseek-chat"        # For Steps 0/2: classification (cheap, 8K output)
+CHAT_MODEL = "deepseek-chat"  # For Steps 0/2: classification (cheap, 8K output)
 REASONER_MODEL = "deepseek-reasoner"  # For Step 4: explanations (64K output)
 
 # Constant system prompt prefix for cache hit optimization
@@ -19,6 +23,9 @@ SYSTEM_PROMPT_PREFIX = (
     "You help students understand complex technical concepts by analyzing textbook content. "
     "Always be precise, use proper mathematical notation, and cite sources when possible."
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class DeepSeekProvider(AIProvider):
@@ -41,9 +48,20 @@ class DeepSeekProvider(AIProvider):
         """Call DeepSeek API with exponential backoff retry on empty/error responses."""
         delays = [2, 4, 8]
         last_error = None
+        model = payload.get("model", "unknown")
+        message_count = len(payload.get("messages", []) or [])
 
         for attempt in range(max_retries):
+            t0 = time.perf_counter()
             try:
+                logger.debug(
+                    "DeepSeek API call started",
+                    extra={
+                        "model": model,
+                        "message_count": message_count,
+                        "timeout": timeout,
+                    },
+                )
                 async with httpx.AsyncClient(timeout=timeout) as client:
                     response = await client.post(
                         f"{self.base_url}/chat/completions",
@@ -53,19 +71,53 @@ class DeepSeekProvider(AIProvider):
                     response.raise_for_status()
                     data = response.json()
 
-                    # Check for empty content (known DeepSeek JSON mode issue)
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    content = (
+                        data.get("choices", [{}])[0]
+                        .get("message", {})
+                        .get("content", "")
+                    )
                     if not content or content.strip() == "":
-                        raise ValueError(f"Empty response from DeepSeek (attempt {attempt + 1})")
+                        logger.warning(
+                            "Empty DeepSeek response content",
+                            extra={"model": model, "attempt": attempt + 1},
+                        )
+                        raise ValueError(
+                            f"Empty response from DeepSeek (attempt {attempt + 1})"
+                        )
 
+                    elapsed_ms = round((time.perf_counter() - t0) * 1000)
+                    usage = data.get("usage", {})
+                    logger.info(
+                        "DeepSeek API response received",
+                        extra={
+                            "model": model,
+                            "duration_ms": elapsed_ms,
+                            "token_usage": usage,
+                        },
+                    )
                     return data
 
             except (ValueError, httpx.HTTPError) as e:
                 last_error = e
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(delays[attempt])
+                    delay = delays[attempt]
+                    logger.warning(
+                        "DeepSeek API retry",
+                        extra={
+                            "attempt": attempt + 1,
+                            "delay": delay,
+                            "error": str(e),
+                        },
+                    )
+                    await asyncio.sleep(delay)
 
-        raise RuntimeError(f"DeepSeek API failed after {max_retries} attempts: {last_error}")
+        logger.error(
+            "DeepSeek API retries exhausted",
+            extra={"error": str(last_error)},
+        )
+        raise RuntimeError(
+            f"DeepSeek API failed after {max_retries} attempts: {last_error}"
+        )
 
     async def chat(
         self,
@@ -97,9 +149,20 @@ class DeepSeekProvider(AIProvider):
         delays = [2, 4, 8]
         max_retries = 3
         last_error = None
+        model = payload.get("model", "unknown")
+        message_count = len(payload.get("messages", []) or [])
 
         for attempt in range(max_retries):
             try:
+                logger.debug(
+                    "DeepSeek streaming call started",
+                    extra={
+                        "model": model,
+                        "message_count": message_count,
+                        "timeout": 120.0,
+                    },
+                )
+                start_time = time.perf_counter()
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     async with client.stream(
                         "POST",
@@ -112,18 +175,42 @@ class DeepSeekProvider(AIProvider):
                             if line.startswith("data: ") and line != "data: [DONE]":
                                 try:
                                     data = json.loads(line[6:])
-                                    content = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                                    content = (
+                                        data.get("choices", [{}])[0]
+                                        .get("delta", {})
+                                        .get("content", "")
+                                    )
                                     if content:
                                         yield content
                                 except json.JSONDecodeError:
                                     pass
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
+                logger.info(
+                    "DeepSeek streaming response completed",
+                    extra={"model": model, "duration_ms": duration_ms},
+                )
                 return
             except (httpx.HTTPError, httpx.TimeoutException) as e:
                 last_error = e
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(delays[attempt])
+                    delay = delays[attempt]
+                    logger.warning(
+                        "DeepSeek streaming retry",
+                        extra={
+                            "attempt": attempt + 1,
+                            "delay": delay,
+                            "error": str(e),
+                        },
+                    )
+                    await asyncio.sleep(delay)
                 else:
-                    raise RuntimeError(f"DeepSeek streaming failed after {max_retries} attempts: {last_error}")
+                    logger.error(
+                        "DeepSeek streaming retries exhausted",
+                        extra={"error": str(last_error)},
+                    )
+                    raise RuntimeError(
+                        f"DeepSeek streaming failed after {max_retries} attempts: {last_error}"
+                    )
 
     async def extract_concepts(self, user_query: str) -> ConceptExtraction:
         """Step 0: Extract concepts and equation forms from user query."""
@@ -135,7 +222,7 @@ class DeepSeekProvider(AIProvider):
                     "Extract the mathematical concepts and equation forms from the user's query. "
                     "Recognize equation FORMS not just literal text — Y(z) = az/(z-b) is a Z-transform "
                     "regardless of the values of a and b. "
-                    "Return JSON: {\"concepts\": [\"concept1\", \"concept2\"], \"equations\": [\"equation form 1\"]}"
+                    'Return JSON: {"concepts": ["concept1", "concept2"], "equations": ["equation form 1"]}'
                 ),
             },
             {"role": "user", "content": user_query},
@@ -169,7 +256,7 @@ class DeepSeekProvider(AIProvider):
                         "Classify whether this chapter EXPLAINS or USES the given concept. "
                         "EXPLAINS = introduces, derives, defines, proves the concept. "
                         "USES = applies the concept in examples, problems, or design without explaining it. "
-                        "Return JSON: {\"classification\": \"EXPLAINS|USES\", \"confidence\": 0.0-1.0, \"reason\": \"...\"}"
+                        'Return JSON: {"classification": "EXPLAINS|USES", "confidence": 0.0-1.0, "reason": "..."}'
                     ),
                 },
                 {
@@ -185,14 +272,16 @@ class DeepSeekProvider(AIProvider):
             data = await self._call_with_retry(payload, timeout=60.0)
             content = data["choices"][0]["message"]["content"]
             parsed = json.loads(content)
-            results.append(ClassifiedMatch(
-                source=desc.get("source", ""),
-                chapter=desc.get("chapter", ""),
-                subchapter=desc.get("subchapter", ""),
-                classification=parsed.get("classification", "USES"),
-                confidence=parsed.get("confidence", 0.5),
-                reason=parsed.get("reason", ""),
-            ))
+            results.append(
+                ClassifiedMatch(
+                    source=desc.get("source", ""),
+                    chapter=desc.get("chapter", ""),
+                    subchapter=desc.get("subchapter", ""),
+                    classification=parsed.get("classification", "USES"),
+                    confidence=parsed.get("confidence", 0.5),
+                    reason=parsed.get("reason", ""),
+                )
+            )
         return results
 
     async def generate_explanation(
@@ -244,7 +333,7 @@ class DeepSeekProvider(AIProvider):
                     f"{SYSTEM_PROMPT_PREFIX}\n\n"
                     f"Generate {count} practice problems about the given topic based on the textbook content. "
                     "Use LaTeX for all mathematical expressions. "
-                    "Return JSON: {\"problems\": [{\"question\": \"...\", \"solution\": \"...\"}]}"
+                    'Return JSON: {"problems": [{"question": "...", "solution": "..."}]}'
                 ),
             },
             {
