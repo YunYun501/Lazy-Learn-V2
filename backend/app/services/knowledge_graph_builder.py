@@ -233,9 +233,7 @@ class KnowledgeGraphBuilder:
                             )
 
                     processed_sections += 1
-                    progress = (
-                        0.3 + (processed_sections / max(total_sections, 1)) * 0.55
-                    )
+                    progress = 0.3 + (processed_sections / max(total_sections, 1)) * 0.5
                     await self.store.update_graph_job(
                         job_id=job_id, progress_pct=round(progress, 2)
                     )
@@ -249,7 +247,14 @@ class KnowledgeGraphBuilder:
             if tasks:
                 await asyncio.gather(*tasks)
 
-            await self.store.update_graph_job(job_id=job_id, progress_pct=0.85)
+            await self.store.update_graph_job(job_id=job_id, progress_pct=0.8)
+
+            if all_nodes and self.ai_router:
+                await self._enrich_equation_nodes(
+                    textbook_id=textbook_id, all_nodes=all_nodes
+                )
+
+            await self.store.update_graph_job(job_id=job_id, progress_pct=0.9)
 
             if all_nodes and self.ai_router:
                 await self._extract_relationships(
@@ -270,8 +275,67 @@ class KnowledgeGraphBuilder:
             )
             raise
 
+    async def _enrich_equation_nodes(
+        self, textbook_id: str, all_nodes: list[dict]
+    ) -> None:
+        ai_router = self.ai_router
+        if not ai_router or not hasattr(ai_router, "get_json_response"):
+            return
+
+        nodes = await self.store.get_concept_nodes(textbook_id)
+        if not nodes:
+            return
+
+        existing_nodes_list = [
+            {"id": node["id"], "title": node["title"]} for node in all_nodes
+        ]
+        equation_nodes = []
+        for node in nodes:
+            try:
+                metadata = json.loads(node.get("metadata_json") or "{}")
+            except (json.JSONDecodeError, TypeError):
+                continue
+            equation_latex = metadata.get("defining_equation", "")
+            if equation_latex:
+                equation_nodes.append(
+                    {"node": node, "metadata": metadata, "equation": equation_latex}
+                )
+
+        if not equation_nodes:
+            return
+
+        semaphore = asyncio.Semaphore(3)
+
+        async def _enrich(node_entry: dict) -> None:
+            async with semaphore:
+                try:
+                    from app.services.knowledge_graph_prompts import (
+                        EQUATION_ENRICHMENT_PROMPT,
+                        parse_enrichment_response,
+                    )
+
+                    metadata = node_entry["metadata"]
+                    equation_latex = node_entry["equation"]
+                    prompt = EQUATION_ENRICHMENT_PROMPT.format(
+                        equation_latex=equation_latex,
+                        section_text="",
+                        existing_nodes_json=json.dumps(existing_nodes_list),
+                    )
+                    raw = await ai_router.get_json_response(prompt)
+                    components = parse_enrichment_response(raw)
+                    if components:
+                        metadata["equation_components"] = components
+                        await self.store.update_concept_node_metadata(
+                            node_entry["node"]["id"], json.dumps(metadata)
+                        )
+                except Exception:
+                    return
+
+        await asyncio.gather(*[_enrich(node_entry) for node_entry in equation_nodes])
+
     async def _extract_relationships(self, textbook_id: str, nodes: list[dict]) -> None:
-        if not self.ai_router or not hasattr(self.ai_router, "get_json_response"):
+        ai_router = self.ai_router
+        if not ai_router or not hasattr(ai_router, "get_json_response"):
             return
         if len(nodes) < 2:
             return
@@ -285,7 +349,7 @@ class KnowledgeGraphBuilder:
         )
 
         try:
-            raw = await self.ai_router.get_json_response(prompt)
+            raw = await ai_router.get_json_response(prompt)
             if isinstance(raw, dict):
                 relationships = raw.get("relationships", [])
             elif isinstance(raw, list):
