@@ -494,3 +494,67 @@
   margin-top: var(--space-3, 12px);
 }
 
+/* ─── Equation Breakdown ──────────────────────────────────────── */
+.concept-detail-panel__breakdown {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.concept-detail-panel__variable {
+  padding: var(--space-2, 8px);
+  border: 1px solid var(--color-border, #2a4a7a);
+  border-radius: 0;
+  background: var(--color-bg-secondary, #16213e);
+  transition: background-color 0.2s ease;
+}
+
+.concept-detail-panel__variable--calculated {
+  border-left: 3px solid var(--color-accent-blue, #2196f3);
+}
+
+.concept-detail-panel__variable--calculated:hover {
+  background: rgba(33, 150, 243, 0.15);
+  cursor: pointer;
+}
+
+.concept-detail-panel__variable--constant {
+  border-left: 3px solid var(--color-text-muted, #606070);
+  cursor: default;
+}
+
+.concept-detail-panel__variable-symbol {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  font-size: 0.95em;
+  color: var(--color-text-primary, #e8e8e8);
+}
+
+.concept-detail-panel__variable-name {
+  color: var(--color-text-secondary, #a0a0b0);
+  font-size: 0.95em;
+}
+
+.concept-detail-panel__variable-desc {
+  margin-top: var(--space-1, 4px);
+  font-size: 0.85em;
+  color: var(--color-text-muted, #606070);
+  line-height: 1.4;
+}
+
+.concept-detail-panel__page-ref {
+  margin-top: var(--space-1, 4px);
+  font-size: 0.8em;
+  color: var(--color-text-muted, #606070);
+  font-style: italic;
+}
+
+/* Prevent KaTeX equations from overflowing narrow panel */
+.concept-detail-panel__equation .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
