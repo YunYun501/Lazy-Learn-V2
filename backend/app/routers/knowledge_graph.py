@@ -205,6 +205,7 @@ async def delete_graph(textbook_id: str):
 
 
 async def _build_graph_background(textbook_id: str, job_id: str):
+    ai_router = None
     try:
         from app.services.knowledge_graph_builder import KnowledgeGraphBuilder
         from app.services.ai_router import AIRouter
@@ -227,3 +228,6 @@ async def _build_graph_background(textbook_id: str, job_id: str):
         store = get_storage()
         await store.initialize()
         await store.update_graph_job(job_id=job_id, status="failed", error=str(e))
+    finally:
+        if ai_router is not None:
+            await ai_router.close()

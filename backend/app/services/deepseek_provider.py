@@ -32,6 +32,22 @@ class DeepSeekProvider(AIProvider):
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.base_url = DEEPSEEK_BASE_URL
+        self._client: httpx.AsyncClient | None = None
+
+    def _ensure_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                limits=httpx.Limits(
+                    max_connections=50,
+                    max_keepalive_connections=20,
+                ),
+            )
+        return self._client
+
+    async def close(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
 
     def _headers(self) -> dict:
         return {
@@ -51,6 +67,8 @@ class DeepSeekProvider(AIProvider):
         model = payload.get("model", "unknown")
         message_count = len(payload.get("messages", []) or [])
 
+        client = self._ensure_client()
+
         for attempt in range(max_retries):
             t0 = time.perf_counter()
             try:
@@ -62,40 +80,38 @@ class DeepSeekProvider(AIProvider):
                         "timeout": timeout,
                     },
                 )
-                async with httpx.AsyncClient(timeout=timeout) as client:
-                    response = await client.post(
-                        f"{self.base_url}/chat/completions",
-                        headers=self._headers(),
-                        json=payload,
-                    )
-                    response.raise_for_status()
-                    data = response.json()
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self._headers(),
+                    json=payload,
+                    timeout=timeout,
+                )
+                response.raise_for_status()
+                data = response.json()
 
-                    content = (
-                        data.get("choices", [{}])[0]
-                        .get("message", {})
-                        .get("content", "")
+                content = (
+                    data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                )
+                if not content or content.strip() == "":
+                    logger.warning(
+                        "Empty DeepSeek response content",
+                        extra={"model": model, "attempt": attempt + 1},
                     )
-                    if not content or content.strip() == "":
-                        logger.warning(
-                            "Empty DeepSeek response content",
-                            extra={"model": model, "attempt": attempt + 1},
-                        )
-                        raise ValueError(
-                            f"Empty response from DeepSeek (attempt {attempt + 1})"
-                        )
+                    raise ValueError(
+                        f"Empty response from DeepSeek (attempt {attempt + 1})"
+                    )
 
-                    elapsed_ms = round((time.perf_counter() - t0) * 1000)
-                    usage = data.get("usage", {})
-                    logger.info(
-                        "DeepSeek API response received",
-                        extra={
-                            "model": model,
-                            "duration_ms": elapsed_ms,
-                            "token_usage": usage,
-                        },
-                    )
-                    return data
+                elapsed_ms = round((time.perf_counter() - t0) * 1000)
+                usage = data.get("usage", {})
+                logger.info(
+                    "DeepSeek API response received",
+                    extra={
+                        "model": model,
+                        "duration_ms": elapsed_ms,
+                        "token_usage": usage,
+                    },
+                )
+                return data
 
             except (ValueError, httpx.HTTPError) as e:
                 last_error = e
@@ -152,6 +168,8 @@ class DeepSeekProvider(AIProvider):
         model = payload.get("model", "unknown")
         message_count = len(payload.get("messages", []) or [])
 
+        client = self._ensure_client()
+
         for attempt in range(max_retries):
             try:
                 logger.debug(
@@ -163,27 +181,27 @@ class DeepSeekProvider(AIProvider):
                     },
                 )
                 start_time = time.perf_counter()
-                async with httpx.AsyncClient(timeout=120.0) as client:
-                    async with client.stream(
-                        "POST",
-                        f"{self.base_url}/chat/completions",
-                        headers=self._headers(),
-                        json=payload,
-                    ) as response:
-                        response.raise_for_status()
-                        async for line in response.aiter_lines():
-                            if line.startswith("data: ") and line != "data: [DONE]":
-                                try:
-                                    data = json.loads(line[6:])
-                                    content = (
-                                        data.get("choices", [{}])[0]
-                                        .get("delta", {})
-                                        .get("content", "")
-                                    )
-                                    if content:
-                                        yield content
-                                except json.JSONDecodeError:
-                                    pass
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/chat/completions",
+                    headers=self._headers(),
+                    json=payload,
+                    timeout=120.0,
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if line.startswith("data: ") and line != "data: [DONE]":
+                            try:
+                                data = json.loads(line[6:])
+                                content = (
+                                    data.get("choices", [{}])[0]
+                                    .get("delta", {})
+                                    .get("content", "")
+                                )
+                                if content:
+                                    yield content
+                            except json.JSONDecodeError:
+                                pass
                 duration_ms = int((time.perf_counter() - start_time) * 1000)
                 logger.info(
                     "DeepSeek streaming response completed",

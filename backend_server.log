@@ -1,0 +1,7 @@
+INFO:     Will watch for changes in these directories: ['C:\\Local\\Github\\Lazy_Learn\\backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [6652] using WatchFiles
+[32m12:51:29.398 INFO   [0m [app] Logging initialized — level=INFO, log_dir=C:\Local\Github\Lazy_Learn\backend\data\logs
+INFO:     Started server process [18740]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.

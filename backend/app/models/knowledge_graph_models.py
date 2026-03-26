@@ -47,6 +47,10 @@ class NodeType(str, Enum):
     result = "result"
     example = "example"
 
+    # --- variable / parameter ---
+    variable = "variable"
+    parameter = "parameter"
+
 
 class RelationshipType(str, Enum):
     """Type of relationship between concept nodes."""

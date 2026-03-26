@@ -22,6 +22,7 @@ class TestPromptRendering:
         assert "Shafts" in rendered
         assert "concept_groups" in rendered
         assert "derivations" in rendered
+        assert "transformation_context" in rendered
         assert "variant_of" in rendered
 
     def test_cross_section_prompt_renders_with_data(self):

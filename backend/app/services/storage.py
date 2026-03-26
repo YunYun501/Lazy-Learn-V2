@@ -1096,3 +1096,75 @@ class MetadataStore:
             ) as cursor:
                 row = await cursor.fetchone()
             return dict(row) if row else None
+
+    async def batch_create_concept_nodes(self, nodes: list[dict]) -> None:
+        """Batch-insert concept nodes in a single transaction."""
+        if not nodes:
+            return
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.executemany(
+                "INSERT INTO concept_nodes "
+                "(id, textbook_id, title, node_type, level, description, "
+                "source_chapter_id, source_section_id, source_page, metadata_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        n["id"],
+                        n["textbook_id"],
+                        n["title"],
+                        n["node_type"],
+                        n["level"],
+                        n.get("description"),
+                        n.get("source_chapter_id"),
+                        n.get("source_section_id"),
+                        n.get("source_page"),
+                        n.get("metadata_json"),
+                        n["created_at"],
+                    )
+                    for n in nodes
+                ],
+            )
+            await db.commit()
+
+    async def batch_create_concept_edges(self, edges: list[dict]) -> None:
+        """Batch-insert concept edges in a single transaction."""
+        if not edges:
+            return
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.executemany(
+                "INSERT INTO concept_edges "
+                "(id, textbook_id, source_node_id, target_node_id, "
+                "relationship_type, confidence, reasoning, metadata_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        e["id"],
+                        e["textbook_id"],
+                        e["source_node_id"],
+                        e["target_node_id"],
+                        e["relationship_type"],
+                        e.get("confidence", 1.0),
+                        e.get("reasoning"),
+                        e.get("metadata_json"),
+                        e["created_at"],
+                    )
+                    for e in edges
+                ],
+            )
+            await db.commit()
+
+    async def batch_update_concept_node_metadata(
+        self, updates: list[tuple[str, str]]
+    ) -> None:
+        """Batch-update metadata_json for multiple concept nodes.
+
+        Each tuple is ``(node_id, metadata_json)``.
+        """
+        if not updates:
+            return
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.executemany(
+                "UPDATE concept_nodes SET metadata_json = ? WHERE id = ?",
+                [(metadata_json, node_id) for node_id, metadata_json in updates],
+            )
+            await db.commit()

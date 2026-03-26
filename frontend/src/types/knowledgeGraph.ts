@@ -3,7 +3,7 @@ export type NodeType =
   | 'theorem' | 'definition' | 'equation' | 'lemma' | 'corollary' | 'axiom' | 'proof' | 'identity' | 'formula'
   | 'law' | 'principle' | 'theory' | 'hypothesis' | 'observation' | 'constant' | 'property'
   | 'method' | 'technique' | 'algorithm' | 'procedure' | 'criterion' | 'model' | 'approximation' | 'rule' | 'condition' | 'relation'
-  | 'concept' | 'result' | 'example'
+  | 'concept' | 'result' | 'example' | 'variable' | 'parameter'
 export type NodeLevel = 'chapter' | 'section' | 'subsection'
 export type RelationshipType =
   | 'derives_from'
@@ -88,7 +88,7 @@ const NODE_TYPES: NodeType[] = [
   'theorem', 'definition', 'equation', 'lemma', 'corollary', 'axiom', 'proof', 'identity', 'formula',
   'law', 'principle', 'theory', 'hypothesis', 'observation', 'constant', 'property',
   'method', 'technique', 'algorithm', 'procedure', 'criterion', 'model', 'approximation', 'rule', 'condition', 'relation',
-  'concept', 'result', 'example',
+  'concept', 'result', 'example', 'variable', 'parameter',
 ]
 
 export function isValidNodeType(value: string): value is NodeType {

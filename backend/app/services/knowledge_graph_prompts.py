@@ -94,7 +94,14 @@ Return a JSON object with this exact structure:
       "source": "source result title",
       "target": "target result title",
       "description": "how source leads to target",
-      "derivation_steps": ["step 1 LaTeX", "step 2 LaTeX"]
+      "derivation_steps": ["step 1 LaTeX", "step 2 LaTeX"],
+      "transformation_context": {{
+        "setting": "scenario or conditions under which derivation applies (e.g. shaft design with combined bending and torsion)",
+        "assumptions": ["assumption 1 (e.g. distortion-energy theory applied)", "assumption 2"],
+        "substitutions": [
+          {{"from": "original term LaTeX", "to": "substituted term LaTeX", "reason": "why this substitution"}}
+        ]
+      }}
     }}
   ]
 }}
@@ -109,6 +116,11 @@ Example: In a section about fatigue failure criteria:
   - Soderberg Criterion variant_of Goodman Criterion (alternative safety criterion)
   - Gerber Criterion variant_of Goodman Criterion (nonlinear alternative)
   - ASME Elliptic Criterion variant_of Soderberg Criterion (elliptic variant)
+- Derivation: Soderberg Criterion → Modified Soderberg (DE Soderberg)
+  - transformation_context:
+    - setting: "Shaft design with combined bending and torsion loads"
+    - assumptions: ["Distortion-energy (DE) theory applied to convert multiaxial to uniaxial"]
+    - substitutions: [{{from: "\\sigma_a", to: "\\sigma'_a = \\sqrt{{\\sigma_a^2 + 3\\tau_a^2}}", reason: "DE theory von Mises equivalent"}}]
 
 IMPORTANT: Return ONLY valid JSON. The root must be an object with "concept_groups" and "derivations" arrays.
 Do not include markdown or code blocks.

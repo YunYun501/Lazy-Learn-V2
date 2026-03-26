@@ -316,6 +316,17 @@ async def test_derivation_edges_have_steps(store, tmp_path, monkeypatch):
                 "target": "Critical Speed Formula",
                 "description": "Energy balance leads to formula",
                 "derivation_steps": ["T_{max} = V_{max}"],
+                "transformation_context": {
+                    "setting": "Single-disk rotor with gravity loading",
+                    "assumptions": ["Static deflection approximation"],
+                    "substitutions": [
+                        {
+                            "from": "T_{max}",
+                            "to": "V_{max}",
+                            "reason": "Energy conservation at resonance",
+                        }
+                    ],
+                },
             }
         ],
     }
@@ -335,6 +346,13 @@ async def test_derivation_edges_have_steps(store, tmp_path, monkeypatch):
     assert derives_edges
     metadata = json.loads(derives_edges[0]["metadata_json"])
     assert metadata["derivation_steps"] == ["T_{max} = V_{max}"]
+    assert "transformation_context" in metadata
+    assert (
+        metadata["transformation_context"]["setting"]
+        == "Single-disk rotor with gravity loading"
+    )
+    assert len(metadata["transformation_context"]["assumptions"]) == 1
+    assert len(metadata["transformation_context"]["substitutions"]) == 1
 
 
 @pytest.mark.asyncio
@@ -560,3 +578,118 @@ async def test_no_shared_variables_edges(store, tmp_path, monkeypatch):
         edge for edge in edges if edge["relationship_type"] == "shared_variables"
     ]
     assert shared_edges == []
+
+
+@pytest.mark.asyncio
+async def test_enrichment_creates_uses_edges_for_calculated_components(
+    store, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    textbook_id, chapter_id = await _seed_textbook_and_chapter(store)
+    job_id = await store.create_graph_job(textbook_id=textbook_id)
+    section_id = await _create_section(store, chapter_id, "1.1", "Fatigue", 5, 10)
+
+    target_node_id = await store.create_concept_node(
+        textbook_id=textbook_id,
+        title="Endurance Limit",
+        node_type="formula",
+        level="subsection",
+        source_chapter_id=chapter_id,
+        metadata_json=json.dumps({"defining_equation": "\\sigma'_e = 0.5 S_{ut}"}),
+    )
+
+    sections = [
+        {
+            "id": section_id,
+            "title": "Fatigue",
+            "chapter_id": chapter_id,
+            "page_start": 5,
+            "page_end": 10,
+            "section_number": "1.1",
+            "section_path": "CH1/1.1",
+            "content_entries": [
+                {"content_type": "text", "content": "Fatigue analysis."},
+            ],
+        }
+    ]
+
+    section_response = {
+        "concept_groups": [
+            {
+                "name": "Marin Factors",
+                "description": "Factors modifying endurance limit",
+                "node_type": "concept",
+                "members": [
+                    {
+                        "title": "Marin Equation",
+                        "node_type": "formula",
+                        "defining_equation": "\\sigma_e = k_a k_b \\sigma'_e",
+                        "description": "Modified endurance limit",
+                    }
+                ],
+                "intra_relationships": [],
+            }
+        ],
+        "derivations": [],
+    }
+
+    enrichment_response = {
+        "equation_components": [
+            {
+                "symbol": "k_a",
+                "name": "surface factor",
+                "type": "constant",
+                "description": "Surface finish effect",
+                "latex": None,
+                "page_reference": "p.312",
+                "linked_node_id": None,
+            },
+            {
+                "symbol": "\\sigma'_e",
+                "name": "endurance limit",
+                "type": "calculated",
+                "description": "Base endurance limit",
+                "latex": "\\sigma'_e = 0.5 S_{ut}",
+                "page_reference": None,
+                "linked_node_id": target_node_id,
+            },
+        ]
+    }
+
+    async def _mock_get_json(prompt):
+        if "Concepts to analyze:" in prompt:
+            return {"relationships": []}
+        if "k_a k_b" in prompt:
+            return enrichment_response
+        if "existing_nodes_json" in prompt.lower() or "equation_components" in prompt:
+            return {"equation_components": []}
+        return section_response
+
+    ai_router = AsyncMock()
+    ai_router.get_json_response = AsyncMock(side_effect=_mock_get_json)
+    monkeypatch.setattr(
+        "app.services.knowledge_graph_builder.get_sections_with_content",
+        AsyncMock(return_value=sections),
+    )
+
+    builder = KnowledgeGraphBuilder(store, ai_router=ai_router)
+    await builder.build_graph(textbook_id=textbook_id, job_id=job_id)
+
+    edges = await store.get_concept_edges(textbook_id)
+    uses_edges = [
+        edge
+        for edge in edges
+        if edge["relationship_type"] == "uses"
+        and edge["target_node_id"] == target_node_id
+    ]
+    assert len(uses_edges) == 1
+    assert "endurance limit" in uses_edges[0]["reasoning"]
+
+    constant_edges = [
+        edge
+        for edge in edges
+        if edge["relationship_type"] == "uses"
+        and edge["reasoning"]
+        and "surface factor" in edge["reasoning"]
+    ]
+    assert len(constant_edges) == 0

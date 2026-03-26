@@ -366,4 +366,91 @@ describe('ConceptDetailPanel', () => {
     })
     expect(screen.getByText('Equation Breakdown')).toBeInTheDocument()
   })
+
+  it('renders derivation steps when edge has derivation_steps metadata', async () => {
+    mockGetNodeDetail.mockResolvedValue(
+      makeDetail({
+        outgoingEdges: [
+          {
+            id: 'edge-deriv',
+            textbookId: 'tb-1',
+            sourceNodeId: 'node-1',
+            targetNodeId: 'node-2',
+            relationshipType: 'derives_from',
+            confidence: 0.9,
+            metadata: {
+              derivation_steps: ['T_{max} = V_{max}', '\\omega_c^2 = \\sum k_i'],
+            },
+            createdAt: '2024-01-01T00:00:00Z',
+          },
+        ],
+      }),
+    )
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Derivation Steps:')).toBeInTheDocument()
+    })
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0)
+  })
+
+  it('renders transformation context when edge has transformation_context metadata', async () => {
+    mockGetNodeDetail.mockResolvedValue(
+      makeDetail({
+        outgoingEdges: [
+          {
+            id: 'edge-ctx',
+            textbookId: 'tb-1',
+            sourceNodeId: 'node-1',
+            targetNodeId: 'node-2',
+            relationshipType: 'derives_from',
+            confidence: 0.9,
+            metadata: {
+              derivation_steps: ['step1'],
+              transformation_context: {
+                setting: 'Shaft design with combined bending',
+                assumptions: ['DE theory applied'],
+                substitutions: [
+                  { from: '\\sigma_a', to: "\\sigma'_a", reason: 'DE theory' },
+                ],
+              },
+            },
+            createdAt: '2024-01-01T00:00:00Z',
+          },
+        ],
+      }),
+    )
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Shaft design with combined bending/)).toBeInTheDocument()
+    })
+    expect(screen.getByText(/DE theory applied/)).toBeInTheDocument()
+    expect(screen.getAllByText(/DE theory/).length).toBeGreaterThan(0)
+  })
+
+  it('does not render derivation section when edge has no metadata', async () => {
+    mockGetNodeDetail.mockResolvedValue(
+      makeDetail({
+        outgoingEdges: [
+          {
+            id: 'edge-plain',
+            textbookId: 'tb-1',
+            sourceNodeId: 'node-1',
+            targetNodeId: 'node-2',
+            relationshipType: 'derives_from',
+            confidence: 0.9,
+            createdAt: '2024-01-01T00:00:00Z',
+          },
+        ],
+      }),
+    )
+    render(<ConceptDetailPanel textbookId="tb-1" nodeId="node-1" nodes={[]} onClose={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Relationships')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Derivation Steps:')).not.toBeInTheDocument()
+  })
 })

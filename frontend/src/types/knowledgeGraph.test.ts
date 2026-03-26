@@ -14,7 +14,7 @@ describe('isValidNodeType', () => {
       'theorem', 'definition', 'equation', 'lemma', 'corollary', 'axiom', 'proof', 'identity', 'formula',
       'law', 'principle', 'theory', 'hypothesis', 'observation', 'constant', 'property',
       'method', 'technique', 'algorithm', 'procedure', 'criterion', 'model', 'approximation', 'rule', 'condition', 'relation',
-      'concept', 'result', 'example',
+      'concept', 'result', 'example', 'variable', 'parameter',
     ]
     validTypes.forEach((type) => {
       expect(isValidNodeType(type)).toBe(true)

@@ -55,36 +55,165 @@ def is_port_in_use(port: int) -> bool:
 
 
 def get_pids_on_port(port: int) -> list[int]:
-    """Find all PIDs listening on a port using netstat."""
+    """Find all PIDs bound to a port."""
     pids: set[int] = set()
-    try:
-        out = subprocess.check_output(
-            ["netstat", "-ano"], text=True, stderr=subprocess.DEVNULL
-        )
-        for line in out.splitlines():
-            if "LISTENING" not in line:
-                continue
-            if f":{port} " in line or f":{port}\t" in line:
-                parts = line.strip().split()
-                try:
-                    pids.add(int(parts[-1]))
-                except (ValueError, IndexError):
-                    pass
-    except Exception:
-        pass
+    if sys.platform == "win32":
+        try:
+            out = subprocess.check_output(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    f"Get-NetTCPConnection -LocalPort {port} "
+                    f"-ErrorAction SilentlyContinue "
+                    f"| Select-Object -ExpandProperty OwningProcess",
+                ],
+                text=True,
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+            )
+            for line in out.strip().splitlines():
+                val = line.strip()
+                if val.isdigit() and int(val) > 0:
+                    pids.add(int(val))
+        except Exception:
+            pass
+        if not pids:
+            try:
+                out = subprocess.check_output(
+                    ["netstat", "-ano"],
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                    timeout=10,
+                )
+                for line in out.splitlines():
+                    parts = line.split()
+                    if len(parts) >= 5 and parts[1].endswith(f":{port}"):
+                        try:
+                            pid = int(parts[-1])
+                            if pid > 0:
+                                pids.add(pid)
+                        except (ValueError, IndexError):
+                            pass
+            except Exception:
+                pass
+    else:
+        try:
+            out = subprocess.check_output(
+                ["lsof", "-ti", f":{port}"],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+            for line in out.strip().splitlines():
+                val = line.strip()
+                if val.isdigit():
+                    pids.add(int(val))
+        except Exception:
+            pass
     return list(pids)
 
 
+def _pid_alive(pid: int) -> bool:
+    if sys.platform == "win32":
+        try:
+            r = subprocess.run(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    f"if (Get-Process -Id {pid} -ErrorAction SilentlyContinue) "
+                    "{ exit 0 } else { exit 1 }",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=5,
+            )
+            return r.returncode == 0
+        except Exception:
+            return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
+
+
+def _force_close_port_windows(port: int) -> bool:
+    """Force-close TCP connections on a port via the Windows SetTcpEntry API.
+
+    This deletes the TCB (Transmission Control Block) at the kernel level,
+    freeing the port even when the owning process is already dead and taskkill
+    / Stop-Process have no effect.  Requires the script to run with enough
+    privilege (typically the same user that opened the socket).
+    """
+    import ctypes
+    import struct as _struct
+
+    MIB_TCP_STATE_DELETE_TCB = 12
+
+    try:
+        iphlpapi = ctypes.windll.iphlpapi
+
+        buf_size = ctypes.c_ulong(0)
+        iphlpapi.GetTcpTable(None, ctypes.byref(buf_size), 0)
+        buf = ctypes.create_string_buffer(buf_size.value)
+        if iphlpapi.GetTcpTable(buf, ctypes.byref(buf_size), 0) != 0:
+            return False
+
+        data = buf.raw
+        num_entries = _struct.unpack_from("<I", data, 0)[0]
+        closed_any = False
+
+        for i in range(num_entries):
+            offset = 4 + i * 20
+            state, local_addr, lport_raw, remote_addr, rport_raw = _struct.unpack_from(
+                "<5I", data, offset
+            )
+            if socket.ntohs(lport_raw & 0xFFFF) == port:
+                row = _struct.pack(
+                    "<5I",
+                    MIB_TCP_STATE_DELETE_TCB,
+                    local_addr,
+                    lport_raw,
+                    remote_addr,
+                    rport_raw,
+                )
+                row_buf = ctypes.create_string_buffer(row)
+                if iphlpapi.SetTcpEntry(row_buf) == 0:
+                    closed_any = True
+
+        return closed_any
+    except Exception:
+        return False
+
+
 def kill_pid(pid: int):
-    """Kill a process by PID."""
+    """Kill a process and its entire process tree by PID."""
     if sys.platform == "win32":
         subprocess.run(
-            ["taskkill", "/F", "/PID", str(pid)],
+            ["taskkill", "/F", "/T", "/PID", str(pid)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                f"Stop-Process -Id {pid} -Force -ErrorAction SilentlyContinue",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
     else:
-        os.kill(pid, 9)
+        try:
+            os.killpg(os.getpgid(pid), 9)
+        except (ProcessLookupError, PermissionError, OSError):
+            try:
+                os.kill(pid, 9)
+            except (ProcessLookupError, PermissionError):
+                pass
 
 
 def free_port(port: int, name: str):
@@ -92,18 +221,55 @@ def free_port(port: int, name: str):
     if not is_port_in_use(port):
         return
 
-    pids = get_pids_on_port(port)
-    for pid in pids:
-        print(f"[Lazy Learn] Killing previous {name} on port {port} (PID {pid}) ...")
-        kill_pid(pid)
+    for attempt in range(3):
+        pids = get_pids_on_port(port)
+        if not pids:
+            break
+        for pid in pids:
+            print(
+                f"[Lazy Learn] Killing previous {name} on port {port} (PID {pid}) ..."
+            )
+            kill_pid(pid)
 
-    # Wait up to 5s for port to free
-    for _ in range(10):
-        time.sleep(0.5)
+        for _ in range(10):
+            time.sleep(0.5)
+            if not is_port_in_use(port):
+                return
+
         if not is_port_in_use(port):
             return
+        if attempt < 2:
+            print(f"[Lazy Learn] Port {port} still held, retrying ...")
+
+    if sys.platform == "win32" and is_port_in_use(port):
+        pids = get_pids_on_port(port)
+        is_ghost = pids and all(not _pid_alive(p) for p in pids)
+        if is_ghost:
+            print(
+                f"[Lazy Learn] Dead process still holds port {port}, "
+                f"force-closing at kernel level ..."
+            )
+        else:
+            print(
+                f"[Lazy Learn] Port {port} resists normal kill, "
+                f"force-closing at kernel level ..."
+            )
+        if _force_close_port_windows(port):
+            time.sleep(1)
+            if not is_port_in_use(port):
+                print(f"[Lazy Learn] Port {port} freed.")
+                return
 
     if is_port_in_use(port):
+        pids = get_pids_on_port(port)
+        all_dead = pids and all(not _pid_alive(p) for p in pids)
+        if all_dead:
+            print(
+                f"[Lazy Learn] WARNING: Port {port} held by dead process "
+                f"(ghost TCP connection, needs admin to force-close)."
+            )
+            print(f"[Lazy Learn] Proceeding anyway — uvicorn may bind over it.")
+            return
         print(
             f"[Lazy Learn] ERROR: Port {port} still in use. Free it manually and retry."
         )

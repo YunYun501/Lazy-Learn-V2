@@ -125,15 +125,64 @@ export function ConceptDetailPanel({ textbookId, nodeId, nodes, onClose, onNavig
             <div className="concept-detail-panel__relations">
               <h4>Relationships</h4>
               <ul>
-                {detail.outgoingEdges.map(edge => (
-                  <li key={edge.id}>
-                    <span className="edge-type">{edge.relationshipType.replace(/_/g, ' ')}</span>
-                    {': '}
-                    <span className="edge-target">{titleById.get(edge.targetNodeId) ?? edge.targetNodeId}</span>
-                    {edge.reasoning && (
-                      <div className="edge-reasoning">{edge.reasoning}</div>
-                    )}
-                  </li>
+                 {detail.outgoingEdges.map(edge => (
+                   <li key={edge.id}>
+                     <span className="edge-type">{edge.relationshipType.replace(/_/g, ' ')}</span>
+                     {': '}
+                     <span className="edge-target">{titleById.get(edge.targetNodeId) ?? edge.targetNodeId}</span>
+                     {edge.reasoning && (
+                       <div className="edge-reasoning">{edge.reasoning}</div>
+                     )}
+                     {edge.metadata?.derivation_steps && Array.isArray(edge.metadata.derivation_steps) && (edge.metadata.derivation_steps as string[]).length > 0 && (
+                       <div className="derivation-chain">
+                         {edge.metadata.transformation_context && (
+                           <div className="derivation-chain__context">
+                             {(edge.metadata.transformation_context as { setting?: string }).setting && (
+                               <div className="derivation-chain__setting">
+                                 <strong>Context:</strong> {String((edge.metadata.transformation_context as { setting?: string }).setting)}
+                               </div>
+                             )}
+                             {Array.isArray((edge.metadata.transformation_context as { assumptions?: string[] }).assumptions) &&
+                               ((edge.metadata.transformation_context as { assumptions: string[] }).assumptions).length > 0 && (
+                               <div className="derivation-chain__assumptions">
+                                 <strong>Assumptions:</strong>
+                                 <ul>
+                                   {((edge.metadata.transformation_context as { assumptions: string[] }).assumptions).map((a, i) => (
+                                     <li key={i}>{a}</li>
+                                   ))}
+                                 </ul>
+                               </div>
+                             )}
+                             {Array.isArray((edge.metadata.transformation_context as { substitutions?: { from: string; to: string; reason: string }[] }).substitutions) &&
+                               ((edge.metadata.transformation_context as { substitutions: { from: string; to: string; reason: string }[] }).substitutions).length > 0 && (
+                               <div className="derivation-chain__substitutions">
+                                 <strong>Substitutions:</strong>
+                                 <ul>
+                                   {((edge.metadata.transformation_context as { substitutions: { from: string; to: string; reason: string }[] }).substitutions).map((s, i) => (
+                                     <li key={i}>
+                                       <EquationDisplay latex={s.from} /> → <EquationDisplay latex={s.to} />
+                                       {s.reason && <span className="derivation-chain__reason"> ({s.reason})</span>}
+                                     </li>
+                                   ))}
+                                 </ul>
+                               </div>
+                             )}
+                           </div>
+                         )}
+                         <div className="derivation-chain__steps">
+                           <strong>Derivation Steps:</strong>
+                           {(edge.metadata.derivation_steps as string[]).map((step, i) => (
+                             <div key={i} className="derivation-chain__step">
+                               <span className="derivation-chain__step-num">{i + 1}</span>
+                               <div className="derivation-chain__step-math">
+                                 <EquationDisplay latex={step} />
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     )}
+                   </li>
                 ))}
               </ul>
             </div>

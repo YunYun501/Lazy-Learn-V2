@@ -558,3 +558,93 @@
   overflow-y: hidden;
 }
 
+/* ─── Derivation Chain (inline in detail panel) ─────────────── */
+.derivation-chain {
+  margin-top: var(--space-2, 8px);
+  padding: var(--space-2, 8px);
+  background: var(--color-bg-secondary, #16213e);
+  border: 1px solid var(--color-border, #2a4a7a);
+  border-left: 3px solid var(--color-accent-blue, #2196f3);
+  font-family: var(--font-content, 'Inter', sans-serif);
+  font-size: 12px;
+}
+
+.derivation-chain__context {
+  margin-bottom: var(--space-2, 8px);
+  padding-bottom: var(--space-2, 8px);
+  border-bottom: 1px solid var(--color-border, #2a4a7a);
+  color: var(--color-text-secondary, #a0a0b0);
+  line-height: 1.5;
+}
+
+.derivation-chain__setting {
+  margin-bottom: var(--space-1, 4px);
+}
+
+.derivation-chain__assumptions ul,
+.derivation-chain__substitutions ul {
+  list-style: none;
+  padding-left: var(--space-3, 12px);
+  margin: var(--space-1, 4px) 0;
+}
+
+.derivation-chain__assumptions li::before {
+  content: '• ';
+  color: var(--color-accent-secondary, #f5a623);
+}
+
+.derivation-chain__substitutions li {
+  margin-bottom: var(--space-1, 4px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  flex-wrap: wrap;
+}
+
+.derivation-chain__reason {
+  font-size: 11px;
+  color: var(--color-text-muted, #606070);
+  font-style: italic;
+}
+
+.derivation-chain__steps {
+  color: var(--color-text-secondary, #a0a0b0);
+}
+
+.derivation-chain__step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2, 8px);
+  margin-top: var(--space-2, 8px);
+  border-left: 3px solid var(--color-accent-blue, #2196f3);
+  padding-left: var(--space-2, 8px);
+}
+
+.derivation-chain__step-num {
+  font-family: var(--font-pixel, 'Press Start 2P', monospace);
+  font-size: var(--font-size-pixel-xs, 8px);
+  color: var(--color-accent-blue, #2196f3);
+  background: var(--color-bg-secondary, #16213e);
+  border: 2px solid var(--color-accent-blue, #2196f3);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.derivation-chain__step-math {
+  flex: 1;
+  background: var(--color-bg-secondary, #16213e);
+  border: 1px solid var(--color-border, #2a4a7a);
+  padding: var(--space-2, 8px);
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.derivation-chain__step-math .katex {
+  color: var(--color-text-primary, #e8e8e8);
+  font-size: 1em;
+}
+

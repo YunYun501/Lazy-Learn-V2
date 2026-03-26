@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import time
+import uuid
 from datetime import datetime
 
 from app.models.knowledge_graph_models import NodeType
@@ -53,24 +54,39 @@ class KnowledgeGraphBuilder:
                     job_id=job_id, status="failed", error="No extracted chapters found"
                 )
                 return
+
+            now = datetime.utcnow().isoformat()
             all_nodes: list[dict] = []
+            chapter_node_rows: list[dict] = []
+
             for chapter in chapters:
-                node_id = await self.store.create_concept_node(
-                    textbook_id=textbook_id,
-                    title=chapter["title"],
-                    node_type="concept",
-                    level="chapter",
-                    source_chapter_id=chapter["id"],
-                    source_page=chapter.get("page_start"),
+                node_id = str(uuid.uuid4())
+                chapter_node_rows.append(
+                    {
+                        "id": node_id,
+                        "textbook_id": textbook_id,
+                        "title": chapter["title"],
+                        "node_type": "concept",
+                        "level": "chapter",
+                        "description": None,
+                        "source_chapter_id": chapter["id"],
+                        "source_section_id": None,
+                        "source_page": chapter.get("page_start"),
+                        "metadata_json": None,
+                        "created_at": now,
+                    }
                 )
                 all_nodes.append({"id": node_id, "title": chapter["title"]})
 
+            await self.store.batch_create_concept_nodes(chapter_node_rows)
             await self.store.update_graph_job(job_id=job_id, progress_pct=0.3)
 
-            sections_by_chapter = []
+            section_results = await asyncio.gather(
+                *[get_sections_with_content(self.store, ch["id"]) for ch in chapters]
+            )
+            sections_by_chapter: list[dict] = []
             total_sections = 0
-            for chapter in chapters:
-                sections = await get_sections_with_content(self.store, chapter["id"])
+            for chapter, sections in zip(chapters, section_results):
                 sections_by_chapter.append({"chapter": chapter, "sections": sections})
                 total_sections += len(sections)
 
@@ -79,28 +95,40 @@ class KnowledgeGraphBuilder:
             processed_sections = 0
             concept_lock = asyncio.Lock()
             pending_concepts: dict[str, str] = {}
-            self._edge_count = 0
-            self._edge_count_lock = asyncio.Lock()
+            collected_nodes: list[dict] = []
+            collected_edges: list[dict] = []
+            collect_lock = asyncio.Lock()
+            edge_count = 0
+            last_progress_time = time.perf_counter()
             logger.debug(
                 "LLM concurrency configured",
                 extra={"concurrency": concurrency_limit},
             )
 
-            async def process_section(chapter, section):
-                nonlocal processed_sections
+            async def process_section(chapter: dict, section: dict) -> None:
+                nonlocal processed_sections, edge_count, last_progress_time
                 async with semaphore:
-                    section_node_id = await self.store.create_concept_node(
-                        textbook_id=textbook_id,
-                        title=section.get("title", "Unknown Section"),
-                        node_type="concept",
-                        level="section",
-                        source_chapter_id=chapter["id"],
-                        source_section_id=section["id"],
-                        source_page=section.get("page_start"),
-                    )
-                    all_nodes.append(
-                        {"id": section_node_id, "title": section.get("title", "")}
-                    )
+                    ts = datetime.utcnow().isoformat()
+                    section_title = section.get("title", "Unknown Section")
+                    section_node_id = str(uuid.uuid4())
+
+                    local_nodes: list[dict] = [
+                        {
+                            "id": section_node_id,
+                            "textbook_id": textbook_id,
+                            "title": section_title,
+                            "node_type": "concept",
+                            "level": "section",
+                            "description": None,
+                            "source_chapter_id": chapter["id"],
+                            "source_section_id": section["id"],
+                            "source_page": section.get("page_start"),
+                            "metadata_json": None,
+                            "created_at": ts,
+                        }
+                    ]
+                    local_edges: list[dict] = []
+                    local_all_nodes = [{"id": section_node_id, "title": section_title}]
 
                     if self.ai_router and hasattr(self.ai_router, "get_json_response"):
                         content_entries = section.get("content_entries", [])
@@ -116,7 +144,7 @@ class KnowledgeGraphBuilder:
                         ]
 
                         prompt = KEY_RESULT_EXTRACTION_PROMPT.format(
-                            section_title=section.get("title", "Unknown Section"),
+                            section_title=section_title,
                             section_path=section.get("section_path", ""),
                             parent_concept=chapter.get("title", ""),
                             section_text="\n".join(text_entries),
@@ -171,7 +199,7 @@ class KnowledgeGraphBuilder:
                             },
                         )
 
-                        concept_ids = {}
+                        concept_ids: dict[str, str] = {}
                         valid_types = {
                             "variant_of",
                             "derives_from",
@@ -188,33 +216,29 @@ class KnowledgeGraphBuilder:
                                 if group_title in pending_concepts:
                                     group_node_id = pending_concepts[group_title]
                                 else:
-                                    existing_id = await self._deduplicate_concept(
-                                        textbook_id, group_title
-                                    )
-                                    if existing_id:
-                                        group_node_id = existing_id
-                                    else:
-                                        group_node_id = (
-                                            await self.store.create_concept_node(
-                                                textbook_id=textbook_id,
-                                                title=group_title,
-                                                node_type=_safe_node_type(
-                                                    group.get("node_type", "concept")
-                                                ),
-                                                level="subsection",
-                                                description=group.get("description"),
-                                                source_chapter_id=chapter["id"],
-                                                source_section_id=section["id"],
-                                                metadata_json=json.dumps({}),
-                                            )
-                                        )
-                                        all_nodes.append(
-                                            {"id": group_node_id, "title": group_title}
-                                        )
+                                    group_node_id = str(uuid.uuid4())
                                     pending_concepts[group_title] = group_node_id
+                                    local_nodes.append(
+                                        {
+                                            "id": group_node_id,
+                                            "textbook_id": textbook_id,
+                                            "title": group_title,
+                                            "node_type": _safe_node_type(
+                                                group.get("node_type", "concept")
+                                            ),
+                                            "level": "subsection",
+                                            "description": group.get("description"),
+                                            "source_chapter_id": chapter["id"],
+                                            "source_section_id": section["id"],
+                                            "metadata_json": json.dumps({}),
+                                            "created_at": ts,
+                                        }
+                                    )
+                                    local_all_nodes.append(
+                                        {"id": group_node_id, "title": group_title}
+                                    )
                             concept_ids[group_title] = group_node_id
 
-                            member_node_id = ""
                             for member in group.get("members", []):
                                 member_title = member.get("title", "Unknown")
                                 member_node_id = ""
@@ -222,48 +246,55 @@ class KnowledgeGraphBuilder:
                                     if member_title in pending_concepts:
                                         member_node_id = pending_concepts[member_title]
                                     else:
-                                        existing_id = await self._deduplicate_concept(
-                                            textbook_id, member_title
-                                        )
-                                        if existing_id:
-                                            member_node_id = existing_id
-                                        else:
-                                            member_node_id = await self.store.create_concept_node(
-                                                textbook_id=textbook_id,
-                                                title=member_title,
-                                                node_type=_safe_node_type(
+                                        member_node_id = str(uuid.uuid4())
+                                        pending_concepts[member_title] = member_node_id
+                                        local_nodes.append(
+                                            {
+                                                "id": member_node_id,
+                                                "textbook_id": textbook_id,
+                                                "title": member_title,
+                                                "node_type": _safe_node_type(
                                                     member.get("node_type", "concept")
                                                 ),
-                                                level="subsection",
-                                                description=member.get("description"),
-                                                source_chapter_id=chapter["id"],
-                                                source_section_id=section["id"],
-                                                metadata_json=json.dumps(
+                                                "level": "subsection",
+                                                "description": member.get(
+                                                    "description"
+                                                ),
+                                                "source_chapter_id": chapter["id"],
+                                                "source_section_id": section["id"],
+                                                "metadata_json": json.dumps(
                                                     {
                                                         "defining_equation": member.get(
-                                                            "defining_equation", ""
+                                                            "defining_equation",
+                                                            "",
                                                         ),
                                                     }
                                                 ),
-                                            )
-                                            all_nodes.append(
-                                                {
-                                                    "id": member_node_id,
-                                                    "title": member_title,
-                                                }
-                                            )
-                                        pending_concepts[member_title] = member_node_id
+                                                "created_at": ts,
+                                            }
+                                        )
+                                        local_all_nodes.append(
+                                            {
+                                                "id": member_node_id,
+                                                "title": member_title,
+                                            }
+                                        )
                                 if not member_node_id:
                                     continue
                                 concept_ids[member_title] = member_node_id
-                                await self.store.create_concept_edge(
-                                    textbook_id=textbook_id,
-                                    source_node_id=group_node_id,
-                                    target_node_id=member_node_id,
-                                    relationship_type="contains",
+                                local_edges.append(
+                                    {
+                                        "id": str(uuid.uuid4()),
+                                        "textbook_id": textbook_id,
+                                        "source_node_id": group_node_id,
+                                        "target_node_id": member_node_id,
+                                        "relationship_type": "contains",
+                                        "confidence": 1.0,
+                                        "reasoning": None,
+                                        "metadata_json": None,
+                                        "created_at": ts,
+                                    }
                                 )
-                                async with self._edge_count_lock:
-                                    self._edge_count += 1
 
                             for rel in group.get("intra_relationships", []):
                                 source_id = concept_ids.get(rel.get("source", ""))
@@ -273,43 +304,64 @@ class KnowledgeGraphBuilder:
                                 rel_type = rel.get("relationship_type", "variant_of")
                                 if rel_type not in valid_types:
                                     rel_type = "variant_of"
-                                await self.store.create_concept_edge(
-                                    textbook_id=textbook_id,
-                                    source_node_id=source_id,
-                                    target_node_id=target_id,
-                                    relationship_type=rel_type,
-                                    reasoning=rel.get("reasoning"),
+                                local_edges.append(
+                                    {
+                                        "id": str(uuid.uuid4()),
+                                        "textbook_id": textbook_id,
+                                        "source_node_id": source_id,
+                                        "target_node_id": target_id,
+                                        "relationship_type": rel_type,
+                                        "confidence": 1.0,
+                                        "reasoning": rel.get("reasoning"),
+                                        "metadata_json": None,
+                                        "created_at": ts,
+                                    }
                                 )
-                                async with self._edge_count_lock:
-                                    self._edge_count += 1
 
                         for deriv in parsed.get("derivations", []):
                             source_id = concept_ids.get(deriv.get("source", ""))
                             target_id = concept_ids.get(deriv.get("target", ""))
                             if not source_id or not target_id:
                                 continue
-                            await self.store.create_concept_edge(
-                                textbook_id=textbook_id,
-                                source_node_id=source_id,
-                                target_node_id=target_id,
-                                relationship_type="derives_from",
-                                reasoning=deriv.get("description"),
-                                metadata_json=json.dumps(
-                                    {
-                                        "derivation_steps": deriv.get(
-                                            "derivation_steps", []
-                                        ),
-                                    }
-                                ),
+                            local_edges.append(
+                                {
+                                    "id": str(uuid.uuid4()),
+                                    "textbook_id": textbook_id,
+                                    "source_node_id": source_id,
+                                    "target_node_id": target_id,
+                                    "relationship_type": "derives_from",
+                                    "confidence": 1.0,
+                                    "reasoning": deriv.get("description"),
+                                    "metadata_json": json.dumps(
+                                        {
+                                            "derivation_steps": deriv.get(
+                                                "derivation_steps", []
+                                            ),
+                                            "transformation_context": deriv.get(
+                                                "transformation_context", {}
+                                            ),
+                                        }
+                                    ),
+                                    "created_at": ts,
+                                }
                             )
-                            async with self._edge_count_lock:
-                                self._edge_count += 1
+
+                    async with collect_lock:
+                        collected_nodes.extend(local_nodes)
+                        collected_edges.extend(local_edges)
+                        all_nodes.extend(local_all_nodes)
+                        edge_count += len(local_edges)
 
                     processed_sections += 1
-                    progress = 0.3 + (processed_sections / max(total_sections, 1)) * 0.5
-                    await self.store.update_graph_job(
-                        job_id=job_id, progress_pct=round(progress, 2)
-                    )
+                    now_time = time.perf_counter()
+                    if now_time - last_progress_time >= 1.0:
+                        last_progress_time = now_time
+                        progress = (
+                            0.3 + (processed_sections / max(total_sections, 1)) * 0.5
+                        )
+                        await self.store.update_graph_job(
+                            job_id=job_id, progress_pct=round(progress, 2)
+                        )
 
             tasks = []
             for entry in sections_by_chapter:
@@ -320,6 +372,11 @@ class KnowledgeGraphBuilder:
             if tasks:
                 await asyncio.gather(*tasks)
 
+            if collected_nodes:
+                await self.store.batch_create_concept_nodes(collected_nodes)
+            if collected_edges:
+                await self.store.batch_create_concept_edges(collected_edges)
+
             await self.store.update_graph_job(job_id=job_id, progress_pct=0.8)
 
             if all_nodes and self.ai_router:
@@ -329,20 +386,20 @@ class KnowledgeGraphBuilder:
 
             await self.store.update_graph_job(job_id=job_id, progress_pct=0.9)
 
+            rel_edge_count = 0
             if all_nodes and self.ai_router:
-                await self._extract_relationships(
+                rel_edge_count = await self._extract_relationships(
                     textbook_id=textbook_id, nodes=all_nodes
                 )
 
             duration_s = round(time.perf_counter() - t0, 2)
-            edge_count = getattr(self, "_edge_count", 0)
             logger.info(
                 "Graph build completed",
                 extra={
                     "textbook_id": textbook_id,
                     "job_id": job_id,
                     "total_nodes": len(all_nodes),
-                    "total_edges": edge_count,
+                    "total_edges": edge_count + rel_edge_count,
                     "duration_s": duration_s,
                 },
             )
@@ -394,12 +451,15 @@ class KnowledgeGraphBuilder:
         if not equation_nodes:
             return
 
-        semaphore = asyncio.Semaphore(3)
+        semaphore = asyncio.Semaphore(20)
+        collected_metadata_updates: list[tuple[str, str]] = []
+        collected_edges: list[dict] = []
+        collect_lock = asyncio.Lock()
 
         async def _enrich(node_entry: dict) -> None:
             async with semaphore:
                 try:
-                    metadata = node_entry["metadata"]
+                    metadata = node_entry["metadata"].copy()
                     equation_latex = node_entry["equation"]
                     prompt = EQUATION_ENRICHMENT_PROMPT.format(
                         equation_latex=equation_latex,
@@ -410,20 +470,48 @@ class KnowledgeGraphBuilder:
                     components = parse_enrichment_response(raw)
                     if components:
                         metadata["equation_components"] = components
-                        await self.store.update_concept_node_metadata(
-                            node_entry["node"]["id"], json.dumps(metadata)
-                        )
+                        ts = datetime.utcnow().isoformat()
+                        local_edges: list[dict] = []
+                        for comp in components:
+                            if comp.get("type") == "calculated" and comp.get(
+                                "linked_node_id"
+                            ):
+                                local_edges.append(
+                                    {
+                                        "id": str(uuid.uuid4()),
+                                        "textbook_id": textbook_id,
+                                        "source_node_id": node_entry["node"]["id"],
+                                        "target_node_id": comp["linked_node_id"],
+                                        "relationship_type": "uses",
+                                        "confidence": 1.0,
+                                        "reasoning": f"{comp.get('symbol', '')} ({comp.get('name', '')})",
+                                        "metadata_json": None,
+                                        "created_at": ts,
+                                    }
+                                )
+                        async with collect_lock:
+                            collected_metadata_updates.append(
+                                (node_entry["node"]["id"], json.dumps(metadata))
+                            )
+                            collected_edges.extend(local_edges)
                 except Exception:
                     return
 
         await asyncio.gather(*[_enrich(node_entry) for node_entry in equation_nodes])
 
-    async def _extract_relationships(self, textbook_id: str, nodes: list[dict]) -> None:
+        if collected_metadata_updates:
+            await self.store.batch_update_concept_node_metadata(
+                collected_metadata_updates
+            )
+        if collected_edges:
+            await self.store.batch_create_concept_edges(collected_edges)
+
+    async def _extract_relationships(self, textbook_id: str, nodes: list[dict]) -> int:
         ai_router = self.ai_router
         if not ai_router or not hasattr(ai_router, "get_json_response"):
-            return
+            return 0
         if len(nodes) < 2:
-            return
+            return 0
 
         logger.info(
             "Cross-section relationship extraction started",
@@ -460,10 +548,11 @@ class KnowledgeGraphBuilder:
                     "response_snippet": raw_snippet,
                 },
             )
-            return
+            return 0
 
         title_to_id = {node["title"]: node["id"] for node in nodes}
-        edges_created = 0
+        ts = datetime.utcnow().isoformat()
+        collected_edges: list[dict] = []
         for rel in relationships:
             source_id = title_to_id.get(rel.get("source", ""))
             target_id = title_to_id.get(rel.get("target", ""))
@@ -474,34 +563,25 @@ class KnowledgeGraphBuilder:
             except (TypeError, ValueError):
                 confidence = 1.0
 
-            await self.store.create_concept_edge(
-                textbook_id=textbook_id,
-                source_node_id=source_id,
-                target_node_id=target_id,
-                relationship_type=rel.get("relationship_type", "uses"),
-                confidence=confidence,
-                reasoning=rel.get("reasoning"),
+            collected_edges.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "textbook_id": textbook_id,
+                    "source_node_id": source_id,
+                    "target_node_id": target_id,
+                    "relationship_type": rel.get("relationship_type", "uses"),
+                    "confidence": confidence,
+                    "reasoning": rel.get("reasoning"),
+                    "metadata_json": None,
+                    "created_at": ts,
+                }
             )
-            edges_created += 1
-            if hasattr(self, "_edge_count_lock"):
-                async with self._edge_count_lock:
-                    self._edge_count += 1
+
+        if collected_edges:
+            await self.store.batch_create_concept_edges(collected_edges)
 
         logger.info(
             "Cross-section relationship extraction completed",
-            extra={"textbook_id": textbook_id, "edge_count": edges_created},
+            extra={"textbook_id": textbook_id, "edge_count": len(collected_edges)},
         )
-
-    async def _deduplicate_concept(self, textbook_id: str, title: str) -> str | None:
-        import aiosqlite
-
-        async with aiosqlite.connect(self.store.db_path) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT id FROM concept_nodes WHERE textbook_id = ? AND title = ? LIMIT 1",
-                (textbook_id, title),
-            ) as cursor:
-                row = await cursor.fetchone()
-        if row:
-            return dict(row)["id"]
-        return None
+        return len(collected_edges)

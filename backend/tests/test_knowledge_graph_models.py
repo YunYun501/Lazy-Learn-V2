@@ -52,10 +52,12 @@ class TestNodeTypeEnum:
             "concept",
             "result",
             "example",
+            "variable",
+            "parameter",
         }
         actual = {e.value for e in NodeType}
         assert actual == expected
-        assert len(NodeType) == 29
+        assert len(NodeType) == 31
 
 
 class TestRelationshipTypeEnum:

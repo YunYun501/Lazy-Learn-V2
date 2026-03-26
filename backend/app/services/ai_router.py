@@ -73,6 +73,9 @@ class AIRouter:
         )
         return await self.openai.analyze_image(image_path, prompt)
 
+    async def close(self) -> None:
+        await self.deepseek.close()
+
     async def get_json_response(
         self,
         prompt: "str | list[dict]",
